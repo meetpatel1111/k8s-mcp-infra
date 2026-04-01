@@ -364,23 +364,8 @@ jobs:
           kubectl create secret generic weather-app-secret \
             --from-literal=OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }} \
             --from-literal=GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }} \
+            --from-literal=OPEN_METEO_API_KEY=${{ secrets.OPEN_METEO_API_KEY }} \
             --dry-run=client -o yaml | kubectl apply -f -
-
-      - name: Clone Weather Application
-        run: |
-          # Clone your WeatherPulse application
-          git clone https://github.com/meetpatel1111/WeatherPulse.git ./weather-app
-          echo "Cloned WeatherPulse application"
-          
-          # Build and push your weather application
-          cd ./weather-app
-          WEATHER_IMAGE="${ACR_SERVER}/weather-pulse:${{ github.event.inputs.environment }}"
-          echo "WEATHER_IMAGE=$WEATHER_IMAGE" >> $GITHUB_ENV
-          
-          # Build Docker image (assuming your repo has Dockerfile)
-          docker build --no-cache -t "$WEATHER_IMAGE" .
-          docker push "$WEATHER_IMAGE"
-          cd ..
 
       - name: Export replicas and HPA settings from TFVARS
         run: |
