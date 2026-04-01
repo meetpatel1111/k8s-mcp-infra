@@ -101,6 +101,17 @@ jobs:
           az provider register --namespace Microsoft.Compute
           az provider register --namespace Microsoft.Storage
           az provider register --namespace Microsoft.ContainerRegistry
+          
+          # Wait for registration to complete
+          echo "Waiting for provider registration to complete..."
+          for i in {1..10}; do
+            if az provider show --namespace Microsoft.ContainerService --query "registrationState" -o tsv | grep -q "Registered"; then
+              echo "Microsoft.ContainerService provider registered successfully"
+              break
+            fi
+            echo "Attempt $i: Waiting for Microsoft.ContainerService registration..."
+              sleep 30
+          done
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -111,6 +122,18 @@ jobs:
         run: |
           echo "ENVIRONMENT=${{ github.event.inputs.environment }}" >> $GITHUB_ENV
           echo "TFVARS_FILE=${{ github.event.inputs.environment }}.tfvars" >> $GITHUB_ENV
+
+      - name: Import Existing Resources
+        run: |
+          cd terraform
+          # Import existing Log Analytics workspace if it exists
+          WORKSPACE_NAME="law-${{ github.event.inputs.environment }}-$(terraform output -raw random_suffix 2>/dev/null || echo 'unknown')"
+          EXISTING_WORKSPACE=$(az monitor log-analytics workspace list --resource-group rg-aks-weather-mcp-${{ github.event.inputs.environment }} --query "[?contains(name, 'law-${{ github.event.inputs.environment }}')].name" -o tsv)
+          
+          if [ ! -z "$EXISTING_WORKSPACE" ]; then
+            echo "Importing existing Log Analytics workspace: $EXISTING_WORKSPACE"
+            terraform import azurerm_log_analytics_workspace.law "/subscriptions/$(az account show --query id -o tsv)/resourceGroups/rg-aks-weather-mcp-${{ github.event.inputs.environment }}/providers/Microsoft.OperationalInsights/workspaces/$EXISTING_WORKSPACE" || echo "Import failed, continuing..."
+          fi
 
       - name: Pre-bootstrap Terraform backend
         run: |
@@ -191,6 +214,17 @@ jobs:
           az provider register --namespace Microsoft.Compute
           az provider register --namespace Microsoft.Storage
           az provider register --namespace Microsoft.ContainerRegistry
+          
+          # Wait for registration to complete
+          echo "Waiting for provider registration to complete..."
+          for i in {1..10}; do
+            if az provider show --namespace Microsoft.ContainerService --query "registrationState" -o tsv | grep -q "Registered"; then
+              echo "Microsoft.ContainerService provider registered successfully"
+              break
+            fi
+            echo "Attempt $i: Waiting for Microsoft.ContainerService registration..."
+              sleep 30
+          done
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
