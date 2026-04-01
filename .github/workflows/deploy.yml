@@ -820,6 +820,11 @@ jobs:
 
       - name: Display MCP Server URLs
         run: |
+          # Get external IP and convert to dashed format for nip.io
+          EXTERNAL_IP=$(kubectl -n ingress-nginx get svc ingress-nginx-controller \
+            -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "")
+          EXTERNAL_IP=$(echo $EXTERNAL_IP | sed 's/\./-/g')
+          
           echo "🎉 MCP Server deployment completed!"
           echo ""
           echo "🌐 MCP Server Web UI URL: http://k8s-mcp.${EXTERNAL_IP}.nip.io/"
@@ -845,9 +850,10 @@ jobs:
           # Check metrics
           kubectl get servicemonitors -A || echo "No ServiceMonitors found"
           
-          # Get external IP for access testing
+          # Get external IP for access testing and convert to dashed format
           EXTERNAL_IP=$(kubectl -n ingress-nginx get svc ingress-nginx-controller \
             -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "")
+          EXTERNAL_IP=$(echo $EXTERNAL_IP | sed 's/\./-/g')
           
           # Export for current step
           export EXTERNAL_IP=$EXTERNAL_IP
