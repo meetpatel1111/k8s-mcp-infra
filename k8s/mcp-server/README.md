@@ -71,7 +71,7 @@ kubectl -n sre-copilot logs deploy/k8s-mcp-web
 ### URL Pattern
 - **MCP Server Web UI**: `http://k8s-mcp.${EXTERNAL_IP}.nip.io/`
 - **NGINX Demo**: `http://nginx.${EXTERNAL_IP}.nip.io/`
-- **K8sGPT API**: `http://k8sgpt.${EXTERNAL_IP}.nip.io/`
+- **Weather App**: `http://weather.${EXTERNAL_IP}.nip.io/`
 
 ### Ingress Configuration
 The ingress is automatically configured using the external IP from your NGINX ingress controller:
@@ -182,7 +182,6 @@ The Kubernetes MCP Server can be used alongside your weather application to:
 After deployment, you'll have access to:
 - **Weather App**: `http://weather.${EXTERNAL_IP}.nip.io/`
 - **NGINX Demo**: `http://nginx.${EXTERNAL_IP}.nip.io/`
-- **K8sGPT API**: `http://k8sgpt.${EXTERNAL_IP}.nip.io/`
 - **MCP Server Web UI**: `http://k8s-mcp.${EXTERNAL_IP}.nip.io/`
 
 ## Next Steps
