@@ -35,12 +35,6 @@ resource "azurerm_container_registry" "acr" {
     default_action = "Allow"
   }
 
-  # Data protection
-  retention_policy {
-    days    = 30
-    enabled = true
-  }
-
   tags = {
     environment = var.environment
     project     = "weather-mcp"
@@ -148,8 +142,7 @@ resource "azurerm_subnet" "aks" {
   address_prefixes     = ["10.0.1.0/24"]
 
   # Enforce private endpoints
-  enforce_private_link_endpoint_network_policies = true
-  enforce_private_link_service_network_policies  = true
+  private_endpoint_network_policies_enabled = false
 }
 
 # Log Analytics Workspace for monitoring
