@@ -18,11 +18,11 @@ system_node_vm_size   = "Standard_D2s_v3"
 
 # Replica counts
 k8sgpt_replicas = 1
-app_replicas = 2
+app_replicas    = 2
 
 # HPA (Horizontal Pod Autoscaler) settings
 k8sgpt_hpa_max = 3
-app_hpa_max = 5
+app_hpa_max    = 5
 
 # Additional tags for development
 tags = {
