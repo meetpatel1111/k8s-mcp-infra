@@ -43,7 +43,7 @@ on:
         type: boolean
 
 env:
-  TF_DIR: infra
+  TF_DIR: terraform
   TF_IN_AUTOMATION: "true"
   TF_INPUT: "false"
   # Shared backend (same RG/SA/container for all envs)
