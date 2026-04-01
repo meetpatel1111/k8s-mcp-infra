@@ -291,10 +291,10 @@ jobs:
           MCP_SERVERS_IMAGE="${ACR_SERVER}/mcp-servers:${TAG}"
           echo "MCP_SERVERS_IMAGE=$MCP_SERVERS_IMAGE" >> $GITHUB_ENV
           
-          # Clone MCP Servers repository
+          # Clone MCP Servers repository with correct branch
           git clone https://github.com/vikas0105/MCP_Servers.git
           cd MCP_Servers
-          git checkout main
+          git checkout codex/build-mcp-server-for-kubernetes
           
           # Build and push MCP Servers image
           docker build --no-cache -t "$MCP_SERVERS_IMAGE" .
