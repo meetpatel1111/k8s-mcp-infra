@@ -61,7 +61,6 @@ env:
   TF_DIR: terraform
   TF_IN_AUTOMATION: "true"
   TF_INPUT: "false"
-  # Shared backend (same RG/SA/container for all envs)
   BACKEND_RG: tfstate-uks-shared-rg
   BACKEND_SA: sttfstateshared
   BACKEND_CONTAINER: tfstate
@@ -70,13 +69,17 @@ env:
   ARM_TENANT_ID:       ${{ fromJson(secrets.AZURE_CREDENTIALS).tenantId }}
   ARM_SUBSCRIPTION_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).subscriptionId }}
 
+# ─────────────────────────────────────────────────────────────────────────────
 jobs:
+# ─────────────────────────────────────────────────────────────────────────────
+
+  # ───────────────────────────── security-scan ────────────────────────────────
   security-scan:
     if: ${{ github.event.inputs.run_security_scan == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repo
-        uses: actions/checkout@v5
+        uses: actions/checkout@v4
 
       - name: Run tfsec (IaC)
         uses: aquasecurity/tfsec-action@v1.0.3
@@ -94,15 +97,16 @@ jobs:
           exit-code: '0'
           severity: 'CRITICAL,HIGH'
 
+  # ─────────────────────────── terraform-k8s ──────────────────────────────────
   terraform-k8s:
-    if: github.event.inputs.run_terraform == 'true'
+    if: ${{ github.event.inputs.run_terraform == 'true' }}
     runs-on: ubuntu-latest
     defaults:
       run:
         shell: bash
     steps:
       - name: Checkout Repo
-        uses: actions/checkout@v5
+        uses: actions/checkout@v4
 
       - name: Azure Login
         uses: azure/login@v2
@@ -111,24 +115,15 @@ jobs:
 
       - name: Register Azure Providers
         run: |
-          echo "Registering all required Azure providers..."
-          az provider register --namespace Microsoft.ContainerService --wait
-          az provider register --namespace Microsoft.Network --wait
-          az provider register --namespace Microsoft.Compute --wait
-          az provider register --namespace Microsoft.Storage --wait
-          az provider register --namespace Microsoft.ContainerRegistry --wait
-          
-          # Force provider registration with wait flag
-          echo "Ensuring provider registration is complete..."
-          az provider register --namespace Microsoft.ContainerService --wait || true
-          
-          # Verify registration state
-          echo "Checking provider registration status..."
+          for ns in Microsoft.ContainerService Microsoft.Network Microsoft.Compute \
+                    Microsoft.Storage Microsoft.ContainerRegistry; do
+            az provider register --namespace "$ns" --wait
+          done
           az provider show --namespace Microsoft.ContainerService --query "registrationState" -o tsv
-          az provider show --namespace Microsoft.Network --query "registrationState" -o tsv
-          az provider show --namespace Microsoft.Compute --query "registrationState" -o tsv
-          az provider show --namespace Microsoft.Storage --query "registrationState" -o tsv
-          az provider show --namespace Microsoft.ContainerRegistry --query "registrationState" -o tsv
+          az provider show --namespace Microsoft.Network            --query "registrationState" -o tsv
+          az provider show --namespace Microsoft.Compute            --query "registrationState" -o tsv
+          az provider show --namespace Microsoft.Storage            --query "registrationState" -o tsv
+          az provider show --namespace Microsoft.ContainerRegistry  --query "registrationState" -o tsv
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -137,9 +132,8 @@ jobs:
 
       - name: Clean Terraform Cache
         run: |
-          cd terraform
-          rm -rf .terraform
-          rm -f terraform.lock.hcl
+          cd "${TF_DIR}"
+          rm -rf .terraform terraform.lock.hcl
           echo "Terraform cache cleaned"
 
       - name: Set ENV
@@ -151,26 +145,17 @@ jobs:
         run: |
           chmod +x ./terraform/bootstrap/prebootstrap.sh
           ./terraform/bootstrap/prebootstrap.sh \
-            "${BACKEND_RG}" \
-            "${BACKEND_SA}" \
-            "${BACKEND_CONTAINER}" \
-            "eastus"
+            "${BACKEND_RG}" "${BACKEND_SA}" "${BACKEND_CONTAINER}" "eastus"
 
-      - name: Terraform Init (Remote azurerm Backend - shared SA)
+      - name: Terraform Init
         run: |
           set -euo pipefail
           cd "${TF_DIR}"
-          ENVIRONMENT="${{ github.event.inputs.environment }}"
-          RG_NAME="${BACKEND_RG}"
-          SA_NAME="${BACKEND_SA}"
-          CONTAINER_NAME="${BACKEND_CONTAINER}"
-          KEY_PATH="aks/${ENVIRONMENT}.tfstate"
-
           terraform init -input=false -reconfigure \
-            -backend-config="resource_group_name=${RG_NAME}" \
-            -backend-config="storage_account_name=${SA_NAME}" \
-            -backend-config="container_name=${CONTAINER_NAME}" \
-            -backend-config="key=${KEY_PATH}"
+            -backend-config="resource_group_name=${BACKEND_RG}" \
+            -backend-config="storage_account_name=${BACKEND_SA}" \
+            -backend-config="container_name=${BACKEND_CONTAINER}" \
+            -backend-config="key=aks/${{ github.event.inputs.environment }}.tfstate"
 
       - name: Terraform Fmt
         run: |
@@ -185,25 +170,25 @@ jobs:
       - name: Execute Terraform
         run: |
           cd "${TF_DIR}"
-          ACTION="${{ github.event.inputs.action }}"
-          case "$ACTION" in
+          case "${{ github.event.inputs.action }}" in
             apply)
-              terraform plan -input=false -var-file="$TFVARS_FILE" -out=tfplan
-              terraform apply -input=false -auto-approve tfplan
+              terraform plan   -input=false -var-file="${TFVARS_FILE}" -out=tfplan
+              terraform apply  -input=false -auto-approve tfplan
               ;;
             destroy)
-              terraform plan -destroy -input=false -var-file="$TFVARS_FILE" -out=tfplan-destroy
-              terraform apply -input=false -auto-approve tfplan-destroy
+              terraform plan   -destroy -input=false -var-file="${TFVARS_FILE}" -out=tfplan-destroy
+              terraform apply  -input=false -auto-approve tfplan-destroy
               ;;
             refresh)
-              terraform refresh -input=false -var-file="$TFVARS_FILE"
+              terraform refresh -input=false -var-file="${TFVARS_FILE}"
               ;;
             *)
-              echo "Unknown action: $ACTION"
+              echo "Unknown action: ${{ github.event.inputs.action }}"
               exit 1
               ;;
           esac
 
+  # ──────────────────────────── weather-app-deploy ────────────────────────────
   weather-app-deploy:
     if: ${{ github.event.inputs.run_application_deployment == 'true' }}
     runs-on: ubuntu-latest
@@ -212,7 +197,7 @@ jobs:
         shell: bash
     steps:
       - name: Checkout Repo
-        uses: actions/checkout@v5
+        uses: actions/checkout@v4
 
       - name: Azure Login
         uses: azure/login@v2
@@ -221,24 +206,10 @@ jobs:
 
       - name: Register Azure Providers
         run: |
-          echo "Registering all required Azure providers..."
-          az provider register --namespace Microsoft.ContainerService --wait
-          az provider register --namespace Microsoft.Network --wait
-          az provider register --namespace Microsoft.Compute --wait
-          az provider register --namespace Microsoft.Storage --wait
-          az provider register --namespace Microsoft.ContainerRegistry --wait
-          
-          # Force provider registration with wait flag
-          echo "Ensuring provider registration is complete..."
-          az provider register --namespace Microsoft.ContainerService --wait || true
-          
-          # Verify registration state
-          echo "Checking provider registration status..."
-          az provider show --namespace Microsoft.ContainerService --query "registrationState" -o tsv
-          az provider show --namespace Microsoft.Network --query "registrationState" -o tsv
-          az provider show --namespace Microsoft.Compute --query "registrationState" -o tsv
-          az provider show --namespace Microsoft.Storage --query "registrationState" -o tsv
-          az provider show --namespace Microsoft.ContainerRegistry --query "registrationState" -o tsv
+          for ns in Microsoft.ContainerService Microsoft.Network Microsoft.Compute \
+                    Microsoft.Storage Microsoft.ContainerRegistry; do
+            az provider register --namespace "$ns" --wait
+          done
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -247,10 +218,18 @@ jobs:
 
       - name: Clean Terraform Cache
         run: |
-          cd terraform
-          rm -rf .terraform
-          rm -f terraform.lock.hcl
-          echo "Terraform cache cleaned"
+          cd "${TF_DIR}"
+          rm -rf .terraform terraform.lock.hcl
+
+      # FIX: every job that calls `terraform output` must init first
+      - name: Terraform Init (for reading outputs)
+        run: |
+          cd "${TF_DIR}"
+          terraform init -input=false -reconfigure \
+            -backend-config="resource_group_name=${BACKEND_RG}" \
+            -backend-config="storage_account_name=${BACKEND_SA}" \
+            -backend-config="container_name=${BACKEND_CONTAINER}" \
+            -backend-config="key=aks/${{ github.event.inputs.environment }}.tfstate"
 
       - name: Setup kubectl
         uses: azure/setup-kubectl@v4
@@ -260,96 +239,55 @@ jobs:
       - name: Verify kubectl version
         run: kubectl version --client
 
-      # ---------- read TF outputs & get kubeconfig ----------
-      - name: Terraform Init (for reading outputs) — shared backend
-        run: |
-          cd "${TF_DIR}"
-          ENVIRONMENT="${{ github.event.inputs.environment }}"
-          RG_NAME="${BACKEND_RG}"
-          SA_NAME="${BACKEND_SA}"
-          CONTAINER_NAME="${BACKEND_CONTAINER}"
-          KEY_PATH="aks/${ENVIRONMENT}.tfstate"
-
-          terraform init -input=false -reconfigure \
-            -backend-config="resource_group_name=${RG_NAME}" \
-            -backend-config="storage_account_name=${SA_NAME}" \
-            -backend-config="container_name=${CONTAINER_NAME}" \
-            -backend-config="key=${KEY_PATH}"
-
       - name: Get AKS kubeconfig
         run: |
           RG_NAME=$(terraform -chdir="${TF_DIR}" output -raw resource_group_name)
           CLUSTER_NAME=$(terraform -chdir="${TF_DIR}" output -raw cluster_name)
           az aks get-credentials -g "$RG_NAME" -n "$CLUSTER_NAME" --overwrite-existing
 
-      # ---------- ACR login & build/push ----------
+      # ---------- ACR login ----------
       - name: Fetch ACR outputs & login
         run: |
           ACR_NAME=$(terraform -chdir="${TF_DIR}" output -raw acr_name)
           ACR_SERVER=$(terraform -chdir="${TF_DIR}" output -raw acr_login_server)
-          echo "ACR_NAME=$ACR_NAME" >> $GITHUB_ENV
+          echo "ACR_NAME=$ACR_NAME"     >> $GITHUB_ENV
           echo "ACR_SERVER=$ACR_SERVER" >> $GITHUB_ENV
           az acr login --name "$ACR_NAME"
 
+      # ---------- Build & push app image ----------
+      # FIX: write APP_IMAGE to $GITHUB_ENV here; it is consumed in the NEXT step
       - name: Build & Push App Image (ACR)
         run: |
-          TAG="${{ github.event.inputs.environment }}"       
+          TAG="${{ github.event.inputs.environment }}"
           APP_IMAGE="${ACR_SERVER}/app:${TAG}"
-          echo "APP_IMAGE=$APP_IMAGE" >> $GITHUB_ENV
-          
-          # Clone app repository
+          echo "APP_IMAGE=$APP_IMAGE" >> $GITHUB_ENV    # available from next step onward
+
           git clone ${{ github.event.inputs.app_repo_url }}
           REPO_NAME=$(basename "${{ github.event.inputs.app_repo_url }}" .git)
           cd "$REPO_NAME"
-          
-          # Checkout specific branch if provided
+
           if [ "${{ github.event.inputs.app_repo_branch }}" != "main" ]; then
             git checkout "${{ github.event.inputs.app_repo_branch }}"
           fi
-          
-          # Create Dockerfile
+
           if [ -n "${{ github.event.inputs.app_dockerfile }}" ]; then
-            # Use custom Dockerfile from input
             echo "${{ github.event.inputs.app_dockerfile }}" > Dockerfile
-          else
-            # Check if Dockerfile exists, if not create default for WeatherPulse
-            if [ ! -f "Dockerfile" ]; then
-              # Default Dockerfile for WeatherPulse static web app
-              printf "FROM nginx:alpine\nCOPY index.html /usr/share/nginx/html/\nCOPY script.js /usr/share/nginx/html/\nCOPY styles.css /usr/share/nginx/html/\nRUN echo 'server { listen 80; root /usr/share/nginx/html; index index.html; location / { try_files \$uri \$uri/ /index.html; } }' > /etc/nginx/conf.d/default.conf\nEXPOSE 80\nCMD [\"nginx\", \"-g\", \"daemon off;\"]\n" > Dockerfile
-            fi
+          elif [ ! -f "Dockerfile" ]; then
+            printf 'FROM nginx:alpine\n\
+COPY index.html  /usr/share/nginx/html/\n\
+COPY script.js   /usr/share/nginx/html/\n\
+COPY styles.css  /usr/share/nginx/html/\n\
+RUN echo '"'"'server { listen 80; root /usr/share/nginx/html; index index.html; location / { try_files $uri $uri/ /index.html; } }'"'"' \
+  > /etc/nginx/conf.d/default.conf\n\
+EXPOSE 80\n\
+CMD ["nginx", "-g", "daemon off;"]\n' > Dockerfile
           fi
-          
-          # Build and push app image
+
           docker build --no-cache -t "$APP_IMAGE" .
           docker push "$APP_IMAGE"
 
-      - name: Build & Push MCP Servers Image (ACR)
-        run: |
-          TAG="${{ github.event.inputs.environment }}"       
-          MCP_SERVERS_IMAGE="${ACR_SERVER}/mcp-servers:${TAG}"
-          echo "MCP_SERVERS_IMAGE=$MCP_SERVERS_IMAGE" >> $GITHUB_ENV
-          
-          # Clone MCP Servers repository with correct branch
-          git clone ${{ github.event.inputs.mcp_repo_url }}
-          cd MCP_Servers
-          git checkout codex/build-mcp-server-for-kubernetes
-          
-          # Build and push MCP Servers image
-          docker build --no-cache -t "$MCP_SERVERS_IMAGE" .
-          docker push "$MCP_SERVERS_IMAGE"
-
-      - name: Run Trivy scan on MCP servers
-        if: ${{ github.event.inputs.run_security_scan == 'true' }}
-        uses: aquasecurity/trivy-action@0.35.0
-        with:
-          image-ref: ${{ env.MCP_SERVERS_IMAGE }}
-          format: table
-          exit-code: '0'
-          severity: 'CRITICAL,HIGH'
-        env:
-          MCP_SERVERS_IMAGE: ${{ env.MCP_SERVERS_IMAGE }}
-
-      - name: Run Trivy scan on app
+      # FIX: APP_IMAGE is now available from $GITHUB_ENV (set in previous step)
+      - name: Run Trivy scan on app image
         if: ${{ github.event.inputs.run_security_scan == 'true' }}
         uses: aquasecurity/trivy-action@0.35.0
         with:
@@ -357,223 +295,327 @@ jobs:
           format: table
           exit-code: '0'
           severity: 'CRITICAL,HIGH'
-        env:
-          APP_IMAGE: ${{ env.APP_IMAGE }}
 
+      # ---------- Kubernetes secrets ----------
       - name: Create Kubernetes Secrets
-        if: ${{ github.event.inputs.run_application_deployment == 'true' }}
         run: |
-          # Create weather-app-secret with AI keys only (Open-Meteo doesn't require API key)
           kubectl create secret generic weather-app-secret \
             --from-literal=OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }} \
             --from-literal=GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }} \
             --from-literal=OPEN_METEO_API_KEY=${{ secrets.OPEN_METEO_API_KEY }} \
             --dry-run=client -o yaml | kubectl apply -f -
 
+      # ---------- HPA / replica settings ----------
       - name: Export replicas and HPA settings from TFVARS
         run: |
-          TFVARS_FILE="${{ github.event.inputs.environment }}.tfvars"
-          ENVFILE="${TF_DIR}/${TFVARS_FILE}"
-          export K8SGPT_REPLICAS=$(grep k8sgpt_replicas "$ENVFILE" | awk -F'=' '{print $2}' | xargs)
-          export APP_REPLICAS=$(grep app_replicas "$ENVFILE" | awk -F'=' '{print $2}' | xargs || echo "2")
+          ENVFILE="${TF_DIR}/${{ github.event.inputs.environment }}.tfvars"
 
-          export K8SGPT_HPA_MIN=$K8SGPT_REPLICAS
-          export K8SGPT_HPA_MAX=$(grep k8sgpt_hpa_max "$ENVFILE" | awk -F'=' '{print $2}' | xargs)
-          export APP_HPA_MIN=$APP_REPLICAS
-          export APP_HPA_MAX=$(grep app_hpa_max "$ENVFILE" | awk -F'=' '{print $2}' | xargs || echo "5")
+          K8SGPT_REPLICAS=$(grep k8sgpt_replicas "$ENVFILE" | awk -F'=' '{print $2}' | xargs)
+          APP_REPLICAS=$(grep app_replicas      "$ENVFILE" | awk -F'=' '{print $2}' | xargs || echo "2")
+          K8SGPT_HPA_MAX=$(grep k8sgpt_hpa_max  "$ENVFILE" | awk -F'=' '{print $2}' | xargs)
+          APP_HPA_MAX=$(grep app_hpa_max        "$ENVFILE" | awk -F'=' '{print $2}' | xargs || echo "5")
 
-          echo "K8SGPT_REPLICAS=$K8SGPT_REPLICAS" >> $GITHUB_ENV
-          echo "APP_REPLICAS=$APP_REPLICAS" >> $GITHUB_ENV
-          echo "K8SGPT_HPA_MIN=$K8SGPT_HPA_MIN" >> $GITHUB_ENV
-          echo "K8SGPT_HPA_MAX=$K8SGPT_HPA_MAX" >> $GITHUB_ENV
-          echo "APP_HPA_MIN=$APP_HPA_MIN" >> $GITHUB_ENV
-          echo "APP_HPA_MAX=$APP_HPA_MAX" >> $GITHUB_ENV
+          echo "K8SGPT_REPLICAS=$K8SGPT_REPLICAS"   >> $GITHUB_ENV
+          echo "APP_REPLICAS=$APP_REPLICAS"           >> $GITHUB_ENV
+          echo "K8SGPT_HPA_MIN=$K8SGPT_REPLICAS"     >> $GITHUB_ENV
+          echo "K8SGPT_HPA_MAX=$K8SGPT_HPA_MAX"       >> $GITHUB_ENV
+          echo "APP_HPA_MIN=$APP_REPLICAS"             >> $GITHUB_ENV
+          echo "APP_HPA_MAX=$APP_HPA_MAX"               >> $GITHUB_ENV
 
-      - name: Deploy External MCP Integration
-        if: ${{ github.event.inputs.run_application_deployment == 'true' }}
-        run: |
-          PROVIDER="${{ github.event.inputs.mcp_provider }}"
-          MCP_REPO_URL="${{ github.event.inputs.mcp_repo_url }}"
-          MCP_REPO_BRANCH="codex/build-mcp-server-for-kubernetes"
-          echo "MCP_PROVIDER=$PROVIDER" >> $GITHUB_ENV
-          echo "MCP_REPO_URL=$MCP_REPO_URL" >> $GITHUB_ENV
-          
-          # Set replica variables
-          echo "MCP_REPLICAS_MIN=1" >> $GITHUB_ENV
-          echo "MCP_REPLICAS_MAX=3" >> $GITHUB_ENV
-          
-          # Clone and deploy external MCP repository
-          echo "Cloning MCP repository: $MCP_REPO_URL"
-          git clone $MCP_REPO_URL ./mcp-repo
-          cd ./mcp-repo
-          
-          # Checkout specific branch for MCP server
-          git checkout $MCP_REPO_BRANCH
-          echo "Checked out branch: $MCP_REPO_BRANCH"
-          
-          # Check if MCP repo has Dockerfile
-          if [ -f "Dockerfile" ]; then
-            echo "Building and deploying MCP from Dockerfile..."
-            MCP_IMAGE="${ACR_SERVER}/mcp-servers:${{ github.event.inputs.environment }}"
-            echo "MCP_IMAGE=$MCP_IMAGE" >> $GITHUB_ENV
-            
-            docker build --no-cache -t "$MCP_IMAGE" .
-            docker push "$MCP_IMAGE"
-            cd ..
-            
-            # Deploy MCP using existing manifests
-            cp k8s/mcp-server/deployment.yaml k8s/temp.yaml && envsubst < k8s/temp.yaml > k8s/mcp-server/deployment.yaml && rm k8s/temp.yaml && kubectl apply -f k8s/mcp-server/
-            
-          else
-            echo "No Dockerfile found in MCP repository. Please check repository structure."
-            exit 1
-          fi
-
-      - name: Apply Kubernetes Deployments & Services (Azure)
+      # ---------- Install ingress-nginx & wait for LB ----------
+      - name: Deploy ingress-nginx & wait for LoadBalancer IP
         run: |
           kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.13.0/deploy/static/provider/cloud/deploy.yaml
+
           kubectl wait --namespace ingress-nginx \
-              --for=condition=ready pod \
-              --selector=app.kubernetes.io/component=controller \
-              --timeout=300s
+            --for=condition=ready pod \
+            --selector=app.kubernetes.io/component=controller \
+            --timeout=300s
 
-          PROVIDER="${{ github.event.inputs.mcp_provider }}"
-          ENVIRONMENT="${{ github.event.inputs.environment }}"
-
-          # Wait for the ingress-nginx Service LoadBalancer IP (or hostname)
-          echo "Waiting for ingress-nginx controller LoadBalancer IP..."
-          LB_SVC_NS=ingress-nginx
-          LB_SVC_NAME=ingress-nginx-controller
-          MAX_ATTEMPTS=30
-          SLEEP_SECS=10
-          EXTERNAL_IP=""
-
-          for i in $(seq 1 $MAX_ATTEMPTS); do
-            # first try ip, then hostname (some Azure setups use ip, some use hostname)
-            EXTERNAL_IP=$(kubectl -n $LB_SVC_NS get svc $LB_SVC_NAME -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)
-            if [ -z "$EXTERNAL_IP" ]; then
-              EXTERNAL_IP=$(kubectl -n $LB_SVC_NS get svc $LB_SVC_NAME -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || true)
-            fi
-
-            if [ -n "$EXTERNAL_IP" ]; then
-              echo "Found ingress controller LB: $EXTERNAL_IP"
-              break
-            fi
-
-            echo "Attempt $i/$MAX_ATTEMPTS - LB IP not yet assigned. Sleeping ${SLEEP_SECS}s..."
-            sleep $SLEEP_SECS
-          done
-
-          if [ -z "$EXTERNAL_IP" ]; then
-            echo "ERROR: ingress controller LoadBalancer IP/hostname was not assigned within timeout."
-            echo "Check: kubectl -n $LB_SVC_NS get svc $LB_SVC_NAME -o wide"
-            exit 1
-          fi
-
-          # Export for later steps (GitHub Actions environment)
-          echo "EXTERNAL_IP=$EXTERNAL_IP" >> $GITHUB_ENV
-          export EXTERNAL_IP
-
-          # Render & apply application manifests with envsubst
-          cp k8s/app-deployment.yaml k8s/temp.yaml && envsubst < k8s/temp.yaml > k8s/app-deployment.yaml && rm k8s/temp.yaml && kubectl apply -f k8s/app-deployment.yaml
-          cp k8s/main-ingress.yaml k8s/temp.yaml && envsubst < k8s/temp.yaml > k8s/main-ingress.yaml && rm k8s/temp.yaml && kubectl apply -f k8s/main-ingress.yaml
-
-          # Ensure core deployments roll out
-          kubectl -n default rollout status deployment/app --timeout=120s || echo "app rollout status timed out or deployment not found (continuing)"
-
-      - name: Wait for LoadBalancer IP
-        run: |
           echo "Waiting for ingress-nginx LoadBalancer IP..."
-          for i in {1..30}; do
-            EXTERNAL_IP=$(kubectl -n ingress-nginx get svc ingress-nginx-controller -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)
+          EXTERNAL_IP=""
+          for i in $(seq 1 30); do
+            EXTERNAL_IP=$(kubectl -n ingress-nginx get svc ingress-nginx-controller \
+              -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)
+            [ -z "$EXTERNAL_IP" ] && EXTERNAL_IP=$(kubectl -n ingress-nginx get svc ingress-nginx-controller \
+              -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || true)
             if [ -n "$EXTERNAL_IP" ]; then
-              echo "Found ingress IP: $EXTERNAL_IP"
+              echo "LB IP: $EXTERNAL_IP"
               break
             fi
-            echo "Attempt $i/30 - LB IP not yet assigned. Sleeping 10s..."
+            echo "Attempt $i/30 — LB IP not yet assigned. Sleeping 10s..."
             sleep 10
           done
 
-      - name: Create Ingress for Weather App and MCP Services
-        run: |
-          EXTERNAL_IP=$(kubectl -n ingress-nginx get svc ingress-nginx-controller -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-          PROVIDER="${{ github.event.inputs.mcp_provider }}"
-          echo "EXTERNAL_IP=${EXTERNAL_IP}" >> $GITHUB_ENV
-          echo "PROVIDER=${PROVIDER}" >> $GITHUB_ENV
-          
-          # Apply MCP ingress with environment substitution
-          cp k8s/mcp-ingress.yaml k8s/temp.yaml && envsubst < k8s/temp.yaml > k8s/mcp-ingress.yaml && rm k8s/temp.yaml && kubectl apply -f k8s/mcp-ingress.yaml
-          envsubst < k8s/mcp-ingress.yaml | kubectl apply -f -
+          if [ -z "$EXTERNAL_IP" ]; then
+            echo "ERROR: LB IP not assigned within timeout."
+            exit 1
+          fi
 
-      - name: Verify Deployments
+          echo "EXTERNAL_IP=$EXTERNAL_IP" >> $GITHUB_ENV
+
+      # ---------- Deploy app manifests ----------
+      # FIX: use explicit -final.yaml files; never overwrite the template in-place;
+      #      never use `kubectl apply -f <directory>` for template directories
+      - name: Apply app Kubernetes manifests
+        run: |
+          export APP_IMAGE="${{ env.APP_IMAGE }}"
+          export EXTERNAL_IP="${{ env.EXTERNAL_IP }}"
+          export ENVIRONMENT="${{ github.event.inputs.environment }}"
+          export APP_REPLICAS="${{ env.APP_REPLICAS }}"
+          export APP_HPA_MIN="${{ env.APP_HPA_MIN }}"
+          export APP_HPA_MAX="${{ env.APP_HPA_MAX }}"
+
+          envsubst < k8s/app-deployment.yaml > k8s/app-deployment-final.yaml
+          kubectl apply -f k8s/app-deployment-final.yaml
+
+          envsubst < k8s/main-ingress.yaml > k8s/main-ingress-final.yaml
+          kubectl apply -f k8s/main-ingress-final.yaml
+
+          kubectl -n default rollout status deployment/app --timeout=120s \
+            || echo "app rollout timed out or deployment not found (continuing)"
+
+      # ---------- Verify ----------
+      - name: Verify app deployments
         run: |
           echo "=== Weather App Deployment Status ==="
-          kubectl get pods -l app=weather
+          kubectl get pods    -l app=weather
           kubectl get services -l app=weather
-          kubectl get ingress -l app=weather
-          
-          echo "=== MCP Integration Status ==="
-          kubectl get pods -l component=mcp-integration
-          kubectl get services -l component=mcp-integration
-          
-          echo "=== Ingress Status ==="
-          kubectl get ingress -A
-          
+          kubectl get ingress  -l app=weather
+
           echo "=== Access Information ==="
-          echo "Weather App: http://weather.${EXTERNAL_IP}.nip.io"
-          echo "MCP Services: http://mcp.${EXTERNAL_IP}.nip.io"
-          echo "Prometheus: http://prometheus.${EXTERNAL_IP}.nip.io"
-          echo "Grafana: http://grafana.${EXTERNAL_IP}.nip.io"
+          echo "Weather App: http://weather.${{ env.EXTERNAL_IP }}.nip.io"
 
-      - name: Test Weather App Health
-        run: |
-          EXTERNAL_IP=$(kubectl -n ingress-nginx get svc ingress-nginx-controller -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-          echo "Testing weather app health..."
-          
-          # Test health endpoint
-          curl -f "http://weather.${EXTERNAL_IP}.nip.io/health" || exit 1
-          
-          # Test weather endpoint
-          curl -f "http://weather.${EXTERNAL_IP}.nip.io/weather/current/London" || exit 1
-          
-          # Test MCP endpoint
-          curl -f -X POST "http://weather.${EXTERNAL_IP}.nip.io/mcp/weather" \
-            -H "Content-Type: application/json" \
-            -d '{"method":"get_current_weather","params":{"city":"London"}}' || exit 1
-
-      - name: Test MCP Integration
-        run: |
-          EXTERNAL_IP=$(kubectl -n ingress-nginx get svc ingress-nginx-controller -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-          PROVIDER="${{ github.event.inputs.mcp_provider }}"
-          SERVICE_NAME=$([ "$PROVIDER" == "openai" ] && echo "openai-mcp-service" || echo "google-mcp-service")
-          SERVICE_PORT=$([ "$PROVIDER" == "openai" ] && echo "8080" || echo "8081")
-          
-          echo "Testing MCP integration with $PROVIDER..."
-          
-          # Test MCP service health
-          kubectl port-forward service/$SERVICE_NAME $SERVICE_PORT:8080 &
-          PORT_FORWARD_PID=$!
-          
-          sleep 5
-          
-          # Test MCP service
-          curl -f "http://localhost:$SERVICE_PORT/health" || echo "MCP service not ready yet"
-          
-          # Stop port forward
-          kill $PORT_FORWARD_PID 2>/dev/null || true
-
-  verify-deployment:
+  # ──────────────────────────── mcp-server-deploy ─────────────────────────────
+  mcp-server-deploy:
     if: ${{ github.event.inputs.run_application_deployment == 'true' }}
-    needs: [weather-app-deploy, mcp-server-deploy]
+    needs: weather-app-deploy
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
     steps:
       - name: Checkout Repo
-        uses: actions/checkout@v5
+        uses: actions/checkout@v4
 
       - name: Azure Login
         uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Register Azure Providers
+        run: |
+          for ns in Microsoft.ContainerService Microsoft.Network Microsoft.Compute \
+                    Microsoft.Storage Microsoft.ContainerRegistry; do
+            az provider register --namespace "$ns" --wait
+          done
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.14.8
+
+      - name: Clean Terraform Cache
+        run: |
+          cd "${TF_DIR}"
+          rm -rf .terraform terraform.lock.hcl
+
+      # FIX: init is required in every job that uses terraform output
+      - name: Terraform Init (for reading outputs)
+        run: |
+          cd "${TF_DIR}"
+          terraform init -input=false -reconfigure \
+            -backend-config="resource_group_name=${BACKEND_RG}" \
+            -backend-config="storage_account_name=${BACKEND_SA}" \
+            -backend-config="container_name=${BACKEND_CONTAINER}" \
+            -backend-config="key=aks/${{ github.event.inputs.environment }}.tfstate"
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: 'latest'
+
+      - name: Verify kubectl version
+        run: kubectl version --client
+
+      - name: Get AKS kubeconfig
+        run: |
+          RG_NAME=$(terraform -chdir="${TF_DIR}" output -raw resource_group_name)
+          CLUSTER_NAME=$(terraform -chdir="${TF_DIR}" output -raw cluster_name)
+          az aks get-credentials -g "$RG_NAME" -n "$CLUSTER_NAME" --overwrite-existing
+
+      # ---------- ACR ----------
+      - name: Fetch ACR outputs & login
+        run: |
+          ACR_NAME=$(terraform -chdir="${TF_DIR}" output -raw acr_name)
+          ACR_SERVER=$(terraform -chdir="${TF_DIR}" output -raw acr_login_server)
+          echo "ACR_NAME=$ACR_NAME"     >> $GITHUB_ENV
+          echo "ACR_SERVER=$ACR_SERVER" >> $GITHUB_ENV
+          az acr login --name "$ACR_NAME"
+
+      - name: Create Kubernetes Secret for MCP Servers
+        run: |
+          kubectl create secret generic mcp-servers-secret \
+            --from-literal=OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }} \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      # FIX: MCP_IMAGE written to $GITHUB_ENV here; consumed in the NEXT step
+      - name: Build & Push MCP Server Image (ACR)
+        run: |
+          TAG="${{ github.event.inputs.environment }}"
+          MCP_IMAGE="${ACR_SERVER}/mcp-servers:${TAG}"
+          echo "MCP_IMAGE=$MCP_IMAGE" >> $GITHUB_ENV    # available from next step onward
+
+          git clone ${{ github.event.inputs.mcp_repo_url }}
+          cd MCP_Servers
+          git checkout codex/build-mcp-server-for-kubernetes
+
+          docker build --no-cache -t "$MCP_IMAGE" .
+          docker push "$MCP_IMAGE"
+
+      - name: Run Trivy scan on MCP Server image
+        if: ${{ github.event.inputs.run_security_scan == 'true' }}
+        uses: aquasecurity/trivy-action@0.35.0
+        with:
+          image-ref: ${{ env.MCP_SERVERS_IMAGE }}
+          format: table
+          exit-code: '0'
+          severity: 'CRITICAL,HIGH'
+
+      # FIX: MCP_IMAGE is now available from env (set in previous step)
+      # FIX: write to deployment-final.yaml, never overwrite the template
+      - name: Deploy MCP Server to Kubernetes
+        run: |
+          export MCP_IMAGE="${{ env.MCP_IMAGE }}"
+          echo "DEBUG MCP_IMAGE=$MCP_IMAGE"
+
+          envsubst '${MCP_IMAGE}' < k8s/mcp-server/deployment.yaml \
+            > k8s/mcp-server/deployment-final.yaml
+
+          kubectl apply -f k8s/mcp-server/rbac.yaml
+          kubectl apply -f k8s/mcp-server/deployment-final.yaml
+          kubectl apply -f k8s/mcp-server/service.yaml
+
+      # FIX: wait for LB IP with retry before substituting into ingress template
+      # FIX: write to ingress-final.yaml, apply -final; never apply the raw template
+      - name: Create MCP Server Ingress
+        run: |
+          echo "Waiting for ingress-nginx LoadBalancer IP..."
+          EXTERNAL_IP=""
+          for i in $(seq 1 30); do
+            EXTERNAL_IP=$(kubectl -n ingress-nginx get svc ingress-nginx-controller \
+              -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)
+            if [ -n "$EXTERNAL_IP" ]; then
+              echo "Found LB IP: $EXTERNAL_IP"
+              break
+            fi
+            echo "Attempt $i/30 — waiting... sleeping 10s"
+            sleep 10
+          done
+
+          if [ -z "$EXTERNAL_IP" ]; then
+            echo "ERROR: LB IP not assigned within timeout."
+            exit 1
+          fi
+
+          export EXTERNAL_IP
+          echo "EXTERNAL_IP=$EXTERNAL_IP" >> $GITHUB_ENV
+
+          envsubst '${EXTERNAL_IP}' < k8s/mcp-server/ingress.yaml \
+            > k8s/mcp-server/ingress-final.yaml
+
+          kubectl apply -f k8s/mcp-server/ingress-final.yaml
+
+      - name: Wait for MCP Server rollout
+        run: |
+          kubectl -n sre-copilot wait \
+            --for=condition=available deployment/k8s-mcp-web \
+            --timeout=300s
+
+      - name: Verify MCP Server deployment
+        run: |
+          echo "=== MCP Server Pods ==="
+          kubectl -n sre-copilot get pods
+
+          echo "=== MCP Server Services ==="
+          kubectl -n sre-copilot get services
+
+          echo "=== MCP Server Ingress ==="
+          kubectl -n sre-copilot get ingress
+
+          echo "=== MCP Server Logs (last 20 lines) ==="
+          kubectl -n sre-copilot logs deploy/k8s-mcp-web --tail=20
+
+      - name: Display all URLs
+        run: |
+          echo ""
+          echo "🎉 Deployment complete!"
+          echo ""
+          echo "🌦️  Weather App:   http://weather.${{ env.EXTERNAL_IP }}.nip.io/"
+          echo "🔧  MCP Server:   http://k8s-mcp.${{ env.EXTERNAL_IP }}.nip.io/"
+          echo "📊  Prometheus:   http://prometheus.${{ env.EXTERNAL_IP }}.nip.io/"
+          echo "📈  Grafana:      http://grafana.${{ env.EXTERNAL_IP }}.nip.io/"
+          echo ""
+          echo "=== All Ingresses ==="
+          kubectl get ingress -A
+
+          echo "=== All Pods ==="
+          kubectl get pods -A -o wide
+
+          echo "=== HPA ==="
+          kubectl get hpa -A || echo "No HPA resources found"
+
+          echo "=== Service Monitors ==="
+          kubectl get servicemonitors -A || echo "No ServiceMonitors found"
+
+      - name: Test MCP Service health (port-forward)
+        run: |
+          PROVIDER="${{ github.event.inputs.mcp_provider }}"
+          SERVICE_NAME=$([ "$PROVIDER" = "openai" ] && echo "openai-mcp-service" || echo "google-mcp-service")
+          LOCAL_PORT=$([ "$PROVIDER" = "openai" ] && echo "8080" || echo "8081")
+
+          echo "Testing MCP service health via port-forward ($SERVICE_NAME)..."
+          kubectl port-forward service/$SERVICE_NAME ${LOCAL_PORT}:8080 &
+          PF_PID=$!
+          sleep 5
+
+          curl -sf "http://localhost:${LOCAL_PORT}/health" \
+            && echo "MCP health OK" \
+            || echo "MCP service not ready yet (non-fatal)"
+
+          kill $PF_PID 2>/dev/null || true
+
+  # ──────────────────────────── verify-deployment ─────────────────────────────
+  verify-deployment:
+    if: ${{ github.event.inputs.run_application_deployment == 'true' }}
+    needs: [weather-app-deploy, mcp-server-deploy]
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.14.8
+
+      # FIX: init required before any terraform output call
+      - name: Terraform Init (for reading outputs)
+        run: |
+          cd "${TF_DIR}"
+          terraform init -input=false -reconfigure \
+            -backend-config="resource_group_name=${BACKEND_RG}" \
+            -backend-config="storage_account_name=${BACKEND_SA}" \
+            -backend-config="container_name=${BACKEND_CONTAINER}" \
+            -backend-config="key=aks/${{ github.event.inputs.environment }}.tfstate"
 
       - name: Setup kubectl
         uses: azure/setup-kubectl@v4
@@ -588,160 +630,35 @@ jobs:
 
       - name: Verify Kubernetes Deployments & Services
         run: |
+          echo "=== Nodes ==="
           kubectl get nodes -o wide
+
+          echo "=== All Deployments ==="
           kubectl get deployments -A
+
+          echo "=== All Services ==="
           kubectl get svc -A
+
+          echo "=== All Ingresses ==="
           kubectl get ingress -A
-          kubectl get hpa -A
 
-  mcp-server-deploy:
-    if: ${{ github.event.inputs.run_application_deployment == 'true' }}
-    needs: weather-app-deploy
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        shell: bash
-    steps:
-      - name: Checkout Repo
-        uses: actions/checkout@v5
+          echo "=== HPA ==="
+          kubectl get hpa -A || echo "No HPA resources"
 
-      - name: Azure Login
-        uses: azure/login@v2
-        with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
-
-      - name: Setup kubectl
-        uses: azure/setup-kubectl@v4
-        with:
-          version: 'latest'
-
-      - name: Verify kubectl version
-        run: kubectl version --client
-
-      # ---------- get kubeconfig ----------
-      - name: Get AKS kubeconfig
+      - name: Test Weather App endpoints
         run: |
-          RG_NAME=$(terraform -chdir="${TF_DIR}" output -raw resource_group_name)
-          CLUSTER_NAME=$(terraform -chdir="${TF_DIR}" output -raw cluster_name)
-          az aks get-credentials -g "$RG_NAME" -n "$CLUSTER_NAME" --overwrite-existing
-
-      # ---------- Build and Push MCP Server Image ----------
-      - name: Fetch ACR outputs & login
-        run: |
-          ACR_NAME=$(terraform -chdir="${TF_DIR}" output -raw acr_name)
-          ACR_SERVER=$(terraform -chdir="${TF_DIR}" output -raw acr_login_server)
-          echo "ACR_NAME=$ACR_NAME" >> $GITHUB_ENV
-          echo "ACR_SERVER=$ACR_SERVER" >> $GITHUB_ENV
-          az acr login --name "$ACR_NAME"
-
-      - name: Create Kubernetes Secret for MCP Servers
-        run: |
-          kubectl create secret generic mcp-servers-secret \
-            --from-literal=OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }} \
-            --dry-run=client -o yaml | kubectl apply -f -
-
-      - name: Build & Push MCP Server Image (ACR)
-        run: |
-          TAG="${{ github.event.inputs.environment }}"       
-          MCP_IMAGE="${ACR_SERVER}/mcp-servers:${TAG}"
-          echo "MCP_IMAGE=$MCP_IMAGE" >> $GITHUB_ENV
-          
-          # Clone MCP Servers repository with correct branch
-          git clone ${{ github.event.inputs.mcp_repo_url }}
-          cd MCP_Servers
-          git checkout codex/build-mcp-server-for-kubernetes
-          
-          # Build and push MCP Servers image
-          docker build --no-cache -t "$MCP_IMAGE" .
-          docker push "$MCP_IMAGE"
-          
-          # Export MCP_IMAGE for deployment step
-          echo "MCP_IMAGE=$MCP_IMAGE" >> $GITHUB_ENV
-
-      # ---------- Deploy MCP Server ----------
-      - name: Deploy MCP Server to Kubernetes
-        run: |
-          echo "Deploying MCP Server..."
-          
-          # Set MCP_IMAGE from previous step (CRITICAL - ensure variable is available)
-          MCP_IMAGE="${ACR_SERVER}/mcp-servers:${{ github.event.inputs.environment }}"
-          echo "DEBUG MCP_IMAGE is: $MCP_IMAGE"
-          
-          # Export MCP_IMAGE for envsubst (CRITICAL - envsubst only reads exported vars)
-          export MCP_IMAGE=$MCP_IMAGE
-          echo "DEBUG After export MCP_IMAGE is: $MCP_IMAGE"
-          
-          # Update deployment with correct image (NEVER overwrite same file)
-          envsubst '${MCP_IMAGE}' < k8s/mcp-server/deployment.yaml > k8s/mcp-server/deployment-final.yaml
-          
-          # Deploy MCP Server using existing k8s-mcp-server configuration
-          kubectl apply -f k8s/mcp-server/rbac.yaml
-          kubectl apply -f k8s/mcp-server/deployment-final.yaml
-          kubectl apply -f k8s/mcp-server/service.yaml
-
-      - name: Create MCP Server Ingress
-        run: |
-          # Get external IP for ingress (FIXED: use correct AKS ingress selector)
           EXTERNAL_IP=$(kubectl -n ingress-nginx get svc ingress-nginx-controller \
-            -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "")
-          
-          echo "DEBUG EXTERNAL_IP is: $EXTERNAL_IP"
-          
-          # Set EXTERNAL_IP explicitly (CRITICAL - ensure variable is available)
-          export EXTERNAL_IP=$EXTERNAL_IP
-          echo "DEBUG After export EXTERNAL_IP is: $EXTERNAL_IP"
-          
-          # Use existing ingress configuration with envsubst (NEVER overwrite same file)
-          envsubst '${EXTERNAL_IP}' < k8s/mcp-server/ingress.yaml > k8s/mcp-server/ingress-final.yaml
-          kubectl apply -f k8s/mcp-server/ingress-final.yaml
+            -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 
-      - name: Wait for MCP Server deployment
-        run: |
-          echo "Waiting for MCP Server deployment..."
-          kubectl -n sre-copilot wait --for=condition=available deployment/k8s-mcp-web --timeout=300s
+          echo "Testing /health..."
+          curl -sf "http://weather.${EXTERNAL_IP}.nip.io/health" || exit 1
 
-      - name: Verify MCP Server deployment
-        run: |
-          echo "Verifying MCP Server deployment..."
-          kubectl -n sre-copilot get pods
-          kubectl -n sre-copilot get services
-          kubectl -n sre-copilot get ingress
-          kubectl -n sre-copilot logs deploy/k8s-mcp-web --tail=20
+          echo "Testing /weather/current/London..."
+          curl -sf "http://weather.${EXTERNAL_IP}.nip.io/weather/current/London" || exit 1
 
-      - name: Display MCP Server URLs
-        run: |
-          echo "🎉 MCP Server deployment completed!"
-          echo ""
-          echo "🌐 MCP Server Web UI URL: http://k8s-mcp.${EXTERNAL_IP}.nip.io/"
-          echo "📊 Access the Web UI at the URL above"
-          echo ""
-          echo "🔧 To run the MCP server locally:"
-          echo "   git clone ${{ github.event.inputs.mcp_repo_url }}"
-          echo "   cd MCP_Servers"
-          echo "   git checkout codex/build-mcp-server-for-kubernetes"
-          echo "   python -m venv .venv && source .venv/bin/activate"
-          echo "   pip install -e .[dev]"
-          echo "   python src/mcp_server.py"
-          
-          # Check ingress
-          kubectl get ingress -A
-          
-          # Check pods with detailed status
-          kubectl get pods -A -o wide
-          
-          # Check HPA if exists
-          kubectl get hpa -A || echo "No HPA resources found"
-          
-          # Check metrics
-          kubectl get servicemonitors -A || echo "No ServiceMonitors found"
-          
-          # Get external IP for access testing (FIXED: use correct AKS ingress selector)
-          EXTERNAL_IP=$(kubectl -n ingress-nginx get svc ingress-nginx-controller \
-            -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "ingress LB:           $EXTERNAL_IP")
-          echo "App URL:             http://app.${EXTERNAL_IP}.nip.io/"
-          echo "K8s MCP URL:         http://k8s-mcp.${EXTERNAL_IP}.nip.io/"
-            
-          echo "=== Health Check Results ==="
-          curl -s "http://weather.${EXTERNAL_IP}.nip.io/health" | jq .status
-          else
-            echo "External IP not yet assigned. Please check ingress status."
+          echo "Testing /mcp/weather (POST)..."
+          curl -sf -X POST "http://weather.${EXTERNAL_IP}.nip.io/mcp/weather" \
+            -H "Content-Type: application/json" \
+            -d '{"method":"get_current_weather","params":{"city":"London"}}' || exit 1
+
+          echo "All health checks passed ✅"
