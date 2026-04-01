@@ -80,7 +80,7 @@ jobs:
           severity: 'CRITICAL,HIGH'
 
   terraform-k8s:
-    if: ${{ github.event.inputs.run_terraform == 'true' }}
+    if: github.event.inputs.run_terraform == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -93,6 +93,14 @@ jobs:
         uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Register Azure Providers
+        run: |
+          az provider register --namespace Microsoft.ContainerService
+          az provider register --namespace Microsoft.Network
+          az provider register --namespace Microsoft.Compute
+          az provider register --namespace Microsoft.Storage
+          az provider register --namespace Microsoft.ContainerRegistry
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -175,6 +183,14 @@ jobs:
         uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Register Azure Providers
+        run: |
+          az provider register --namespace Microsoft.ContainerService
+          az provider register --namespace Microsoft.Network
+          az provider register --namespace Microsoft.Compute
+          az provider register --namespace Microsoft.Storage
+          az provider register --namespace Microsoft.ContainerRegistry
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
