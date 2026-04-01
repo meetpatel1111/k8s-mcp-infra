@@ -664,14 +664,15 @@ jobs:
           echo "Deploying MCP Server..."
           echo "MCP_IMAGE is: $MCP_IMAGE"
           
-          # Update deployment with correct image
-          cp k8s/mcp-server/deployment.yaml k8s/mcp-server/temp-deployment.yaml
-          envsubst < k8s/mcp-server/temp-deployment.yaml > k8s/mcp-server/deployment.yaml
-          rm k8s/mcp-server/temp-deployment.yaml
+          # Export MCP_IMAGE for envsubst
+          export MCP_IMAGE=$MCP_IMAGE
+          
+          # Update deployment with correct image (NEVER overwrite same file)
+          envsubst '${MCP_IMAGE}' < k8s/mcp-server/deployment.yaml > k8s/mcp-server/deployment-final.yaml
           
           # Deploy MCP Server using existing k8s-mcp-server configuration
           kubectl apply -f k8s/mcp-server/rbac.yaml
-          kubectl apply -f k8s/mcp-server/deployment.yaml
+          kubectl apply -f k8s/mcp-server/deployment-final.yaml
           kubectl apply -f k8s/mcp-server/service.yaml
 
       - name: Create MCP Server Ingress
@@ -682,19 +683,12 @@ jobs:
             EXTERNAL_IP=$(kubectl get service -l app=nginx-ingress-controller -o jsonpath='{.items[0].status.loadBalancer.ingress[0].hostname}' 2>/dev/null || echo "")
           fi
           
-          if [ -z "$EXTERNAL_IP" ]; then
-            echo "Warning: Could not detect external IP for ingress"
-            echo "You can set it manually with: export EXTERNAL_IP=<your-external-ip>"
-            exit 1
-          fi
+          # Export EXTERNAL_IP for envsubst
+          export EXTERNAL_IP=$EXTERNAL_IP
           
-          echo "EXTERNAL_IP=$EXTERNAL_IP" >> $GITHUB_ENV
-          
-          # Use existing ingress configuration with envsubst
-          cp k8s/mcp-server/ingress.yaml k8s/mcp-server/temp.yaml
-          envsubst < k8s/mcp-server/temp.yaml > k8s/mcp-server/ingress.yaml
-          rm k8s/mcp-server/temp.yaml
-          kubectl apply -f k8s/mcp-server/ingress.yaml
+          # Use existing ingress configuration with envsubst (NEVER overwrite same file)
+          envsubst '${EXTERNAL_IP}' < k8s/mcp-server/ingress.yaml > k8s/mcp-server/ingress-final.yaml
+          kubectl apply -f k8s/mcp-server/ingress-final.yaml
 
       - name: Wait for MCP Server deployment
         run: |
