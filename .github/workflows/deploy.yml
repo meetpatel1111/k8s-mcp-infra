@@ -708,43 +708,47 @@ jobs:
 
       - name: Create MCP Server Ingress
         run: |
-          # Get external IP for ingress with retry mechanism
-          echo "Waiting for ingress controller external IP..."
+          # Wait for the ingress-nginx Service LoadBalancer IP (or hostname) - using same pattern as main deployment
+          echo "Waiting for ingress-nginx controller LoadBalancer IP for MCP server..."
+          LB_SVC_NS=ingress-nginx
+          LB_SVC_NAME=ingress-nginx-controller
+          MAX_ATTEMPTS=20
+          SLEEP_SECS=15
           EXTERNAL_IP=""
-          for i in {1..10}; do
-            EXTERNAL_IP=$(kubectl -n ingress-nginx get svc ingress-nginx-controller \
-              -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "")
+
+          for i in $(seq 1 $MAX_ATTEMPTS); do
+            # first try ip, then hostname (some Azure setups use ip, some use hostname)
+            EXTERNAL_IP=$(kubectl -n $LB_SVC_NS get svc $LB_SVC_NAME -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)
+            if [ -z "$EXTERNAL_IP" ]; then
+              EXTERNAL_IP=$(kubectl -n $LB_SVC_NS get svc $LB_SVC_NAME -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || true)
+            fi
+
             if [ -n "$EXTERNAL_IP" ]; then
-              echo "✅ External IP found: $EXTERNAL_IP"
+              echo "✅ Found ingress controller LB for MCP: $EXTERNAL_IP"
               break
             fi
-            echo "⏳ Attempt $i/10: External IP not ready, waiting 30 seconds..."
-            sleep 30
+
+            echo "⏳ Attempt $i/$MAX_ATTEMPTS - LB IP not yet assigned. Sleeping ${SLEEP_SECS}s..."
+            sleep $SLEEP_SECS
           done
-          
-          # Fallback: get node IP if ingress controller IP is not available
+
           if [ -z "$EXTERNAL_IP" ]; then
-            echo "⚠️ Ingress controller IP not available, using node IP as fallback"
-            EXTERNAL_IP=$(kubectl get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="ExternalIP")].address}' 2>/dev/null || echo "")
-            if [ -z "$EXTERNAL_IP" ]; then
-              echo "❌ No external IP available, cannot create ingress"
-              exit 1
-            fi
+            echo "❌ ERROR: ingress controller LoadBalancer IP/hostname was not assigned within timeout."
+            echo "Check: kubectl -n $LB_SVC_NS get svc $LB_SVC_NAME -o wide"
+            exit 1
           fi
-          
-          # Export for current step (envsubst)
+
+          # Export for current step (envsubst) and future steps
           export EXTERNAL_IP=$EXTERNAL_IP
-          
-          # Save for next steps
           echo "EXTERNAL_IP=$EXTERNAL_IP" >> $GITHUB_ENV
           
           # Debug verification
-          echo "DEBUG EXTERNAL_IP is: $EXTERNAL_IP"
+          echo "DEBUG EXTERNAL_IP for MCP ingress: $EXTERNAL_IP"
           env | grep EXTERNAL_IP
           
           # Use existing ingress configuration with envsubst (NEVER overwrite same file)
           envsubst '${EXTERNAL_IP}' < k8s/mcp-server/ingress.yaml > k8s/mcp-server/ingress-final.yaml
-          echo "Generated ingress file:"
+          echo "Generated MCP ingress file:"
           cat k8s/mcp-server/ingress-final.yaml
           kubectl apply -f k8s/mcp-server/ingress-final.yaml
 
