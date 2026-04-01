@@ -415,13 +415,27 @@ jobs:
           if [ -f "Dockerfile" ]; then
             echo "Building and deploying MCP from Dockerfile..."
             MCP_IMAGE="${ACR_SERVER}/mcp-servers:${{ github.event.inputs.environment }}"
+            
+            # Export for current step (envsubst, bash commands)
+            export MCP_IMAGE=$MCP_IMAGE
+            
+            # Save for next steps
             echo "MCP_IMAGE=$MCP_IMAGE" >> $GITHUB_ENV
             
+            # Debug verification
+            echo "DEBUG MCP_IMAGE=$MCP_IMAGE"
+            env | grep MCP_IMAGE
+              
             docker build --no-cache -t "$MCP_IMAGE" .
             docker push "$MCP_IMAGE"
             cd ..
             
             # Deploy MCP using existing manifests
+            # Ensure MCP_IMAGE is exported for envsubst
+            export MCP_IMAGE="$MCP_IMAGE"
+            echo "DEBUG MCP_IMAGE for envsubst: $MCP_IMAGE"
+            env | grep MCP_IMAGE
+            
             cp k8s/mcp-server/deployment.yaml k8s/temp.yaml && envsubst < k8s/temp.yaml > k8s/mcp-server/deployment.yaml && rm k8s/temp.yaml && kubectl apply -f k8s/mcp-server/
             
           else
@@ -644,7 +658,15 @@ jobs:
         run: |
           TAG="${{ github.event.inputs.environment }}"       
           MCP_IMAGE="${ACR_SERVER}/mcp-servers:${TAG}"
+          
+          # Export for current step
+          export MCP_IMAGE=$MCP_IMAGE
+          
+          # Save for next steps
           echo "MCP_IMAGE=$MCP_IMAGE" >> $GITHUB_ENV
+          
+          # Debug verification
+          echo "DEBUG MCP_IMAGE=$MCP_IMAGE"
           
           # Clone MCP Servers repository with correct branch
           git clone ${{ github.event.inputs.mcp_repo_url }}
@@ -663,13 +685,18 @@ jobs:
         run: |
           echo "Deploying MCP Server..."
           
-          # Set MCP_IMAGE from previous step (CRITICAL - ensure variable is available)
+          # MCP_IMAGE should already be exported from previous step, but ensure it's available
           MCP_IMAGE="${ACR_SERVER}/mcp-servers:${{ github.event.inputs.environment }}"
-          echo "DEBUG MCP_IMAGE is: $MCP_IMAGE"
           
-          # Export MCP_IMAGE for envsubst (CRITICAL - envsubst only reads exported vars)
+          # Export for current step (envsubst)
           export MCP_IMAGE=$MCP_IMAGE
-          echo "DEBUG After export MCP_IMAGE is: $MCP_IMAGE"
+          
+          # Save for next steps
+          echo "MCP_IMAGE=$MCP_IMAGE" >> $GITHUB_ENV
+          
+          # Debug verification
+          echo "DEBUG MCP_IMAGE is: $MCP_IMAGE"
+          env | grep MCP_IMAGE
           
           # Update deployment with correct image (NEVER overwrite same file)
           envsubst '${MCP_IMAGE}' < k8s/mcp-server/deployment.yaml > k8s/mcp-server/deployment-final.yaml
@@ -685,11 +712,15 @@ jobs:
           EXTERNAL_IP=$(kubectl -n ingress-nginx get svc ingress-nginx-controller \
             -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "")
           
-          echo "DEBUG EXTERNAL_IP is: $EXTERNAL_IP"
-          
-          # Set EXTERNAL_IP explicitly (CRITICAL - ensure variable is available)
+          # Export for current step (envsubst)
           export EXTERNAL_IP=$EXTERNAL_IP
-          echo "DEBUG After export EXTERNAL_IP is: $EXTERNAL_IP"
+          
+          # Save for next steps
+          echo "EXTERNAL_IP=$EXTERNAL_IP" >> $GITHUB_ENV
+          
+          # Debug verification
+          echo "DEBUG EXTERNAL_IP is: $EXTERNAL_IP"
+          env | grep EXTERNAL_IP
           
           # Use existing ingress configuration with envsubst (NEVER overwrite same file)
           envsubst '${EXTERNAL_IP}' < k8s/mcp-server/ingress.yaml > k8s/mcp-server/ingress-final.yaml
@@ -735,9 +766,20 @@ jobs:
           # Check metrics
           kubectl get servicemonitors -A || echo "No ServiceMonitors found"
           
-          # Get external IP for access testing (FIXED: use correct AKS ingress selector)
+          # Get external IP for access testing
           EXTERNAL_IP=$(kubectl -n ingress-nginx get svc ingress-nginx-controller \
-            -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "ingress LB:           $EXTERNAL_IP")
+            -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "")
+          
+          # Export for current step
+          export EXTERNAL_IP=$EXTERNAL_IP
+          
+          # Save for next steps
+          echo "EXTERNAL_IP=$EXTERNAL_IP" >> $GITHUB_ENV
+          
+          # Debug verification
+          echo "DEBUG EXTERNAL_IP=$EXTERNAL_IP"
+          env | grep EXTERNAL_IP
+          
           echo "App URL:             http://app.${EXTERNAL_IP}.nip.io/"
           echo "K8s MCP URL:         http://k8s-mcp.${EXTERNAL_IP}.nip.io/"
             
