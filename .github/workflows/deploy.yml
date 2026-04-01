@@ -746,10 +746,35 @@ jobs:
           echo "DEBUG EXTERNAL_IP for MCP ingress: $EXTERNAL_IP"
           env | grep EXTERNAL_IP
           
+          # Verify EXTERNAL_IP is not empty before proceeding
+          if [ -z "$EXTERNAL_IP" ]; then
+            echo "❌ CRITICAL: EXTERNAL_IP is still empty after retry attempts!"
+            echo "🔍 Debugging ingress controller status:"
+            kubectl -n ingress-nginx get svc ingress-nginx-controller -o wide
+            echo "🔍 All services in ingress-nginx namespace:"
+            kubectl -n ingress-nginx get svc -o wide
+            exit 1
+          fi
+          
           # Use existing ingress configuration with envsubst (NEVER overwrite same file)
           envsubst '${EXTERNAL_IP}' < k8s/mcp-server/ingress.yaml > k8s/mcp-server/ingress-final.yaml
+          
+          # Verify substitution worked
+          if grep -q "\${EXTERNAL_IP}" k8s/mcp-server/ingress-final.yaml; then
+            echo "❌ envsubst failed - still contains \${EXTERNAL_IP}"
+            echo "🔧 Trying sed fallback..."
+            sed -i "s/\${EXTERNAL_IP}/$EXTERNAL_IP/g" k8s/mcp-server/ingress-final.yaml
+          fi
+          
           echo "Generated MCP ingress file:"
           cat k8s/mcp-server/ingress-final.yaml
+          
+          # Final verification before applying
+          if grep -q "\${EXTERNAL_IP}" k8s/mcp-server/ingress-final.yaml; then
+            echo "❌ CRITICAL: Ingress still contains unsubstituted variables!"
+            exit 1
+          fi
+          
           kubectl apply -f k8s/mcp-server/ingress-final.yaml
 
       - name: Wait for MCP Server deployment
