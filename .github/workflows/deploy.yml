@@ -540,37 +540,43 @@ jobs:
 
       - name: Verify Deployments
         run: |
-          echo "=== Weather App Deployment Status ==="
-          kubectl get pods -l app=weather
-          kubectl get services -l app=weather
-          kubectl get ingress -l app=weather
+          echo "=== Weather App Deployment Status (default namespace) ==="
+          kubectl -n default get deployment app -o yaml
+          kubectl -n default describe deployment app
+          kubectl -n default get pods -l app=app
+          kubectl -n default get services -l app=app
+          kubectl -n default get ingress -l app=weather-app
           
-          echo "=== MCP Integration Status ==="
-          kubectl get pods -l component=mcp-integration
-          kubectl get services -l component=mcp-integration
+          echo "=== Events in default namespace ==="
+          kubectl -n default get events --sort-by=.lastTimestamp | tail -20
+          
+          echo "=== MCP Integration Status (sre-copilot namespace) ==="
+          kubectl -n sre-copilot get pods
+          kubectl -n sre-copilot get services
+          kubectl -n sre-copilot get ingress
           
           echo "=== Ingress Status ==="
           kubectl get ingress -A
           
           echo "=== Access Information ==="
-          echo "Weather App: http://weather.${EXTERNAL_IP}.nip.io"
-          echo "MCP Services: http://mcp.${EXTERNAL_IP}.nip.io"
-          echo "Prometheus: http://prometheus.${EXTERNAL_IP}.nip.io"
-          echo "Grafana: http://grafana.${EXTERNAL_IP}.nip.io"
+          echo "Weather App: http://app.${EXTERNAL_IP}.nip.io"
+          echo "MCP Services: http://k8s-mcp.${EXTERNAL_IP}.nip.io"
 
       - name: Test Weather App Health
         run: |
           EXTERNAL_IP=$(kubectl -n ingress-nginx get svc ingress-nginx-controller -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-          echo "Testing weather app health..."
+          # Convert to dashed format for nip.io (matches ingress host format)
+          EXTERNAL_IP=$(echo $EXTERNAL_IP | sed 's/\./-/g')
+          echo "Testing weather app health with host: app.${EXTERNAL_IP}.nip.io"
           
           # Test health endpoint
-          curl -f "http://weather.${EXTERNAL_IP}.nip.io/health" || exit 1
+          curl -f "http://app.${EXTERNAL_IP}.nip.io/health" || exit 1
           
           # Test weather endpoint
-          curl -f "http://weather.${EXTERNAL_IP}.nip.io/weather/current/London" || exit 1
+          curl -f "http://app.${EXTERNAL_IP}.nip.io/weather/current/London" || exit 1
           
           # Test MCP endpoint
-          curl -f -X POST "http://weather.${EXTERNAL_IP}.nip.io/mcp/weather" \
+          curl -f -X POST "http://app.${EXTERNAL_IP}.nip.io/mcp/weather" \
             -H "Content-Type: application/json" \
             -d '{"method":"get_current_weather","params":{"city":"London"}}' || exit 1
 
@@ -854,6 +860,25 @@ jobs:
           echo "K8s MCP URL:         http://k8s-mcp.${EXTERNAL_IP}.nip.io/"
             
           echo "=== Health Check Results ==="
-          curl -s "http://weather.${EXTERNAL_IP}.nip.io/health" | jq .status
+          if [ -n "$EXTERNAL_IP" ]; then
+            # Convert to dashed format for nip.io
+            EXTERNAL_IP=$(echo $EXTERNAL_IP | sed 's/\./-/g')
+            
+            # Export for current step
+            export EXTERNAL_IP=$EXTERNAL_IP
+            
+            # Save for next steps
+            echo "EXTERNAL_IP=$EXTERNAL_IP" >> $GITHUB_ENV
+            
+            # Debug verification
+            echo "DEBUG EXTERNAL_IP=$EXTERNAL_IP"
+            env | grep EXTERNAL_IP
+            
+            echo "App URL:             http://app.${EXTERNAL_IP}.nip.io/"
+            echo "K8s MCP URL:         http://k8s-mcp.${EXTERNAL_IP}.nip.io/"
+            
+            echo "=== Health Check Results ==="
+            curl -s "http://app.${EXTERNAL_IP}.nip.io/health" | jq .status || echo "Health check failed"
           else
             echo "External IP not yet assigned. Please check ingress status."
+          fi

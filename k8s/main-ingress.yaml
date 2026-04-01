@@ -19,8 +19,6 @@ metadata:
     nginx.ingress.kubernetes.io/rate-limit: "200"
     nginx.ingress.kubernetes.io/rate-limit-window: "1m"
     nginx.ingress.kubernetes.io/client-body-buffer-size: "16k"
-    nginx.ingress.kubernetes.io/proxy-buffering: "on"
-    nginx.ingress.kubernetes.io/proxy-buffer-size: "32k"
     nginx.ingress.kubernetes.io/proxy-connect-timeout: "30"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "30"
     nginx.ingress.kubernetes.io/proxy-read-timeout: "30"
