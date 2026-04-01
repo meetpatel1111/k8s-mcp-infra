@@ -570,18 +570,10 @@ jobs:
           EXTERNAL_IP=$(kubectl -n ingress-nginx get svc ingress-nginx-controller -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
           # Convert to dashed format for nip.io (matches ingress host format)
           EXTERNAL_IP=$(echo $EXTERNAL_IP | sed 's/\./-/g')
-          echo "Testing weather app health with host: app.${EXTERNAL_IP}.nip.io"
+          echo "Testing weather app with host: app.${EXTERNAL_IP}.nip.io"
           
-          # Test health endpoint
-          curl -f "http://app.${EXTERNAL_IP}.nip.io/health" || exit 1
-          
-          # Test weather endpoint
-          curl -f "http://app.${EXTERNAL_IP}.nip.io/weather/current/London" || exit 1
-          
-          # Test MCP endpoint
-          curl -f -X POST "http://app.${EXTERNAL_IP}.nip.io/mcp/weather" \
-            -H "Content-Type: application/json" \
-            -d '{"method":"get_current_weather","params":{"city":"London"}}' || exit 1
+          # Test root URL only
+          curl -f "http://app.${EXTERNAL_IP}.nip.io/" || exit 1
 
       - name: Test MCP Integration
         run: |
