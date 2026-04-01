@@ -27,13 +27,8 @@ resource "azurerm_container_registry" "acr" {
   name                = "acr${var.environment}${random_string.suffix.result}"
   resource_group_name = azurerm_resource_group.rg.name
   location            = azurerm_resource_group.rg.location
-  sku                 = "Standard"
+  sku                 = "Premium"
   admin_enabled       = true
-
-  # Network security
-  network_rule_set {
-    default_action = "Allow"
-  }
 
   tags = {
     environment = var.environment
@@ -71,11 +66,10 @@ resource "azurerm_kubernetes_cluster" "aks" {
 
   # Network configuration
   network_profile {
-    network_plugin     = "azure"
-    network_policy     = "calico"
-    service_cidr       = "10.96.0.0/12"
-    dns_service_ip     = "10.96.0.10"
-    docker_bridge_cidr = "172.17.0.1/16"
+    network_plugin = "azure"
+    network_policy = "calico"
+    service_cidr   = "10.96.0.0/12"
+    dns_service_ip = "10.96.0.10"
   }
 
   # Azure AD integration

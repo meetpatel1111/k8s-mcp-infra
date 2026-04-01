@@ -2,7 +2,7 @@
 # Override default values for development deployment
 
 environment         = "dev"
-location            = "Central India"
+location            = "East US"
 resource_group_name = "rg-aks-weather-mcp-dev"
 cluster_name        = "aks-weather-mcp-dev"
 dns_prefix          = "aks-weather-dev"
