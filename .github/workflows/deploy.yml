@@ -383,28 +383,16 @@ jobs:
         run: |
           TFVARS_FILE="${{ github.event.inputs.environment }}.tfvars"
           ENVFILE="${TF_DIR}/${TFVARS_FILE}"
-          export NGINX_REPLICAS=$(grep nginx_replicas "$ENVFILE" | awk -F'=' '{print $2}' | xargs)
-          export NODEJS_REPLICAS=$(grep nodejs_replicas "$ENVFILE" | awk -F'=' '{print $2}' | xargs)
           export K8SGPT_REPLICAS=$(grep k8sgpt_replicas "$ENVFILE" | awk -F'=' '{print $2}' | xargs)
           export APP_REPLICAS=$(grep app_replicas "$ENVFILE" | awk -F'=' '{print $2}' | xargs || echo "2")
 
-          export NGINX_HPA_MIN=$NGINX_REPLICAS
-          export NGINX_HPA_MAX=$(grep nginx_hpa_max "$ENVFILE" | awk -F'=' '{print $2}' | xargs)
-          export NODEJS_HPA_MIN=$NODEJS_REPLICAS
-          export NODEJS_HPA_MAX=$(grep nodejs_hpa_max "$ENVFILE" | awk -F'=' '{print $2}' | xargs)
           export K8SGPT_HPA_MIN=$K8SGPT_REPLICAS
           export K8SGPT_HPA_MAX=$(grep k8sgpt_hpa_max "$ENVFILE" | awk -F'=' '{print $2}' | xargs)
           export APP_HPA_MIN=$APP_REPLICAS
           export APP_HPA_MAX=$(grep app_hpa_max "$ENVFILE" | awk -F'=' '{print $2}' | xargs || echo "5")
 
-          echo "NGINX_REPLICAS=$NGINX_REPLICAS" >> $GITHUB_ENV
-          echo "NODEJS_REPLICAS=$NODEJS_REPLICAS" >> $GITHUB_ENV
           echo "K8SGPT_REPLICAS=$K8SGPT_REPLICAS" >> $GITHUB_ENV
           echo "APP_REPLICAS=$APP_REPLICAS" >> $GITHUB_ENV
-          echo "NGINX_HPA_MIN=$NGINX_HPA_MIN" >> $GITHUB_ENV
-          echo "NGINX_HPA_MAX=$NGINX_HPA_MAX" >> $GITHUB_ENV
-          echo "NODEJS_HPA_MIN=$NODEJS_HPA_MIN" >> $GITHUB_ENV
-          echo "NODEJS_HPA_MAX=$NODEJS_HPA_MAX" >> $GITHUB_ENV
           echo "K8SGPT_HPA_MIN=$K8SGPT_HPA_MIN" >> $GITHUB_ENV
           echo "K8SGPT_HPA_MAX=$K8SGPT_HPA_MAX" >> $GITHUB_ENV
           echo "APP_HPA_MIN=$APP_HPA_MIN" >> $GITHUB_ENV
@@ -524,11 +512,9 @@ jobs:
 
           # Render & apply application manifests with envsubst
           cp k8s/app-deployment.yaml k8s/temp.yaml && envsubst < k8s/temp.yaml > k8s/app-deployment.yaml && rm k8s/temp.yaml && kubectl apply -f k8s/app-deployment.yaml
-          cp k8s/nginx.yaml k8s/temp.yaml && envsubst < k8s/temp.yaml > k8s/nginx.yaml && rm k8s/temp.yaml && kubectl apply -f k8s/nginx.yaml
           cp k8s/main-ingress.yaml k8s/temp.yaml && envsubst < k8s/temp.yaml > k8s/main-ingress.yaml && rm k8s/temp.yaml && kubectl apply -f k8s/main-ingress.yaml
 
           # Ensure core deployments roll out
-          kubectl -n default rollout status deployment/nginx --timeout=120s || echo "nginx rollout status timed out or deployment not found (continuing)"
           kubectl -n default rollout status deployment/app --timeout=120s || echo "app rollout status timed out or deployment not found (continuing)"
 
       - name: Wait for LoadBalancer IP
@@ -786,7 +772,6 @@ jobs:
           echo "Grafana URL:          http://grafana.${EXTERNAL_IP}.nip.io/"
           echo "Prometheus URL:       http://prometheus.${EXTERNAL_IP}.nip.io/"
           echo "App URL:             http://app.${EXTERNAL_IP}.nip.io/"
-          echo "NGINX Demo URL:       http://nginx.${EXTERNAL_IP}.nip.io/"
           echo "K8s MCP URL:         http://k8s-mcp.${EXTERNAL_IP}.nip.io/"
             
           echo "=== Health Check Results ==="
