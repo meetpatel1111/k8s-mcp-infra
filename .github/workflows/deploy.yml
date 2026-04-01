@@ -338,7 +338,8 @@ jobs:
           docker build --no-cache -t "$MCP_SERVERS_IMAGE" .
           docker push "$MCP_SERVERS_IMAGE"
 
-      - name: Run Trivy scan on MCP Servers
+      - name: Run Trivy scan on MCP servers
+        if: ${{ github.event.inputs.run_security_scan == 'true' }}
         uses: aquasecurity/trivy-action@0.35.0
         with:
           image-ref: ${{ env.MCP_SERVERS_IMAGE }}
@@ -349,6 +350,7 @@ jobs:
           MCP_SERVERS_IMAGE: ${{ env.MCP_SERVERS_IMAGE }}
 
       - name: Run Trivy scan on app
+        if: ${{ github.event.inputs.run_security_scan == 'true' }}
         uses: aquasecurity/trivy-action@0.35.0
         with:
           image-ref: ${{ env.APP_IMAGE }}
@@ -359,6 +361,7 @@ jobs:
           APP_IMAGE: ${{ env.APP_IMAGE }}
 
       - name: Create Kubernetes Secrets
+        if: ${{ github.event.inputs.run_application_deployment == 'true' }}
         run: |
           # Create weather-app-secret with AI keys only (Open-Meteo doesn't require API key)
           kubectl create secret generic weather-app-secret \
@@ -387,6 +390,7 @@ jobs:
           echo "APP_HPA_MAX=$APP_HPA_MAX" >> $GITHUB_ENV
 
       - name: Deploy External MCP Integration
+        if: ${{ github.event.inputs.run_application_deployment == 'true' }}
         run: |
           PROVIDER="${{ github.event.inputs.mcp_provider }}"
           MCP_REPO_URL="${{ github.event.inputs.mcp_repo_url }}"
