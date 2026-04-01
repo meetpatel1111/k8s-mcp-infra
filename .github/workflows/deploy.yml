@@ -571,14 +571,14 @@ jobs:
       - name: Update MCP Server deployment with ACR image
         run: |
           # Update deployment.yaml with the ACR image
-          sed -i "s|ghcr.io/YOUR_ORG/k8s-mcp-mvp:latest|${MCP_IMAGE}|g" mcp-server/k8s/deployment.yaml
+          sed -i "s|ghcr.io/YOUR_ORG/k8s-mcp-mvp:latest|${MCP_IMAGE}|g" k8s/mcp-server/deployment.yaml
 
       - name: Deploy MCP Server to Kubernetes
         run: |
           echo "Deploying MCP Server..."
-          kubectl apply -f mcp-server/k8s/rbac.yaml
-          kubectl apply -f mcp-server/k8s/deployment.yaml
-          kubectl apply -f mcp-server/k8s/service.yaml
+          kubectl apply -f k8s/mcp-server/rbac.yaml
+          kubectl apply -f k8s/mcp-server/deployment.yaml
+          kubectl apply -f k8s/mcp-server/service.yaml
 
       - name: Create MCP Server Ingress
         run: |
