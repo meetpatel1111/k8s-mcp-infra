@@ -58,9 +58,6 @@ resource "azurerm_kubernetes_cluster" "aks" {
     os_disk_size_gb              = 30
     os_disk_type                 = "Ephemeral"
     vnet_subnet_id               = azurerm_subnet.aks.id
-    enable_auto_scaling          = true
-    min_count                    = var.system_node_min_count
-    max_count                    = var.system_node_max_count
     only_critical_addons_enabled = true
   }
 
