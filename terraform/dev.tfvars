@@ -8,7 +8,7 @@ cluster_name        = "aks-weather-mcp-dev"
 dns_prefix          = "aks-weather-dev"
 
 # Kubernetes version (use latest stable for dev)
-kubernetes_version = "1.28.3"
+kubernetes_version = "1.29.0"
 
 # Node pool configuration for development
 system_node_count     = 2
