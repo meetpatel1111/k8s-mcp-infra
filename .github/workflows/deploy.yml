@@ -642,7 +642,7 @@ jobs:
       - name: Build & Push MCP Server Image (ACR)
         run: |
           TAG="${{ github.event.inputs.environment }}"       
-          MCP_IMAGE="${ACR_SERVER}/k8s-mcp-mvp:${TAG}"
+          MCP_IMAGE="${ACR_SERVER}/mcp-servers:${TAG}"
           echo "MCP_IMAGE=$MCP_IMAGE" >> $GITHUB_ENV
           
           # Clone MCP Servers repository with correct branch
@@ -650,7 +650,7 @@ jobs:
           cd MCP_Servers
           git checkout codex/build-mcp-server-for-kubernetes
           
-          # Build and push MCP Server image
+          # Build and push MCP Servers image
           docker build --no-cache -t "$MCP_IMAGE" .
           docker push "$MCP_IMAGE"
 
