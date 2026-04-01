@@ -78,11 +78,7 @@ resource "azurerm_kubernetes_cluster" "aks" {
     docker_bridge_cidr = "172.17.0.1/16"
   }
 
-  # RBAC and Azure AD integration
-  role_based_access_control {
-    enabled = true
-  }
-
+  # Azure AD integration
   azure_active_directory_role_based_access_control {
     managed            = true
     azure_rbac_enabled = true
