@@ -4,7 +4,7 @@ set -e
 RG_NAME=$1
 SA_NAME=$2
 CONTAINER_NAME=$3
-LOCATION=${4:-eastus}
+LOCATION=${4:-"East US"}
 
 # Create Resource Group if not exists
 if ! az group show -n "$RG_NAME" >/dev/null 2>&1; then
