@@ -312,8 +312,11 @@ jobs:
             # Use custom Dockerfile from input
             echo "${{ github.event.inputs.app_dockerfile }}" > Dockerfile
           else
-            # Default Dockerfile for static web apps
-            printf "FROM nginx:alpine\nCOPY . /usr/share/nginx/html/\nRUN echo 'server { listen 80; root /usr/share/nginx/html; index index.html; location / { try_files \$uri \$uri/ /index.html; } }' > /etc/nginx/conf.d/default.conf\nEXPOSE 80\nCMD [\"nginx\", \"-g\", \"daemon off;\"]\n" > Dockerfile
+            # Check if Dockerfile exists, if not create default for WeatherPulse
+            if [ ! -f "Dockerfile" ]; then
+              # Default Dockerfile for WeatherPulse static web app
+              printf "FROM nginx:alpine\nCOPY index.html /usr/share/nginx/html/\nCOPY script.js /usr/share/nginx/html/\nCOPY styles.css /usr/share/nginx/html/\nRUN echo 'server { listen 80; root /usr/share/nginx/html; index index.html; location / { try_files \$uri \$uri/ /index.html; } }' > /etc/nginx/conf.d/default.conf\nEXPOSE 80\nCMD [\"nginx\", \"-g\", \"daemon off;\"]\n" > Dockerfile
+            fi
           fi
           
           # Build and push app image
