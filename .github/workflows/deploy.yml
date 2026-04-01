@@ -558,6 +558,9 @@ jobs:
           echo "=== Ingress Status ==="
           kubectl get ingress -A
           
+          # Convert IP to dashed format for nip.io URLs
+          EXTERNAL_IP=$(echo $EXTERNAL_IP | sed 's/\./-/g')
+          
           echo "=== Access Information ==="
           echo "Weather App: http://app.${EXTERNAL_IP}.nip.io"
           echo "MCP Services: http://k8s-mcp.${EXTERNAL_IP}.nip.io"
