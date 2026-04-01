@@ -510,18 +510,140 @@ jobs:
           CLUSTER_NAME=$(terraform -chdir="${TF_DIR}" output -raw cluster_name)
           az aks get-credentials -g "$RG_NAME" -n "$CLUSTER_NAME" --overwrite-existing
 
-      - name: Comprehensive Verification
+      - name: Verify Kubernetes Deployments & Services
         run: |
-          echo "=== Final Deployment Verification ==="
-          
-          # Check cluster health
           kubectl get nodes -o wide
-          
-          # Check all deployments
           kubectl get deployments -A
-          
-          # Check services
           kubectl get svc -A
+          kubectl get ingress -A
+          kubectl get hpa -A
+
+  mcp-server-deploy:
+    if: ${{ github.event.inputs.run_application_deployment == 'true' }}
+    needs: weather-app-deploy
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v5
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: 'latest'
+
+      - name: Verify kubectl version
+        run: kubectl version --client
+
+      # ---------- get kubeconfig ----------
+      - name: Get AKS kubeconfig
+        run: |
+          RG_NAME=$(terraform -chdir="${TF_DIR}" output -raw resource_group_name)
+          CLUSTER_NAME=$(terraform -chdir="${TF_DIR}" output -raw cluster_name)
+          az aks get-credentials -g "$RG_NAME" -n "$CLUSTER_NAME" --overwrite-existing
+
+      # ---------- Build and Push MCP Server Image ----------
+      - name: Fetch ACR outputs & login
+        run: |
+          ACR_NAME=$(terraform -chdir="${TF_DIR}" output -raw acr_name)
+          ACR_SERVER=$(terraform -chdir="${TF_DIR}" output -raw acr_login_server)
+          echo "ACR_NAME=$ACR_NAME" >> $GITHUB_ENV
+          echo "ACR_SERVER=$ACR_SERVER" >> $GITHUB_ENV
+          az acr login --name "$ACR_NAME"
+
+      - name: Build & Push MCP Server Image (ACR)
+        run: |
+          TAG="${{ github.event.inputs.environment }}"       
+          MCP_IMAGE="${ACR_SERVER}/k8s-mcp-mvp:${TAG}"
+          echo "MCP_IMAGE=$MCP_IMAGE" >> $GITHUB_ENV
+          cd temp_mcp_server
+          docker build --no-cache -t "$MCP_IMAGE" .
+          docker push "$MCP_IMAGE"
+
+      # ---------- Deploy MCP Server ----------
+      - name: Update MCP Server deployment with ACR image
+        run: |
+          # Update deployment.yaml with the ACR image
+          sed -i "s|ghcr.io/YOUR_ORG/k8s-mcp-mvp:latest|${MCP_IMAGE}|g" mcp-server/k8s/deployment.yaml
+
+      - name: Deploy MCP Server to Kubernetes
+        run: |
+          echo "Deploying MCP Server..."
+          kubectl apply -f mcp-server/k8s/rbac.yaml
+          kubectl apply -f mcp-server/k8s/deployment.yaml
+          kubectl apply -f mcp-server/k8s/service.yaml
+
+      - name: Create MCP Server Ingress
+        run: |
+          # Get external IP for ingress
+          EXTERNAL_IP=$(kubectl get service -l app=nginx-ingress-controller -o jsonpath='{.items[0].status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "")
+          if [ -z "$EXTERNAL_IP" ]; then
+            EXTERNAL_IP=$(kubectl get service -l app=nginx-ingress-controller -o jsonpath='{.items[0].status.loadBalancer.ingress[0].hostname}' 2>/dev/null || echo "")
+          fi
+          
+          if [ -z "$EXTERNAL_IP" ]; then
+            echo "Warning: Could not detect external IP for ingress"
+            echo "You can set it manually with: export EXTERNAL_IP=<your-external-ip>"
+            exit 1
+          fi
+          
+          echo "EXTERNAL_IP=$EXTERNAL_IP" >> $GITHUB_ENV
+          
+          # Create ingress with nip.io URL
+          cat <<EOF | kubectl apply -f -
+          apiVersion: networking.k8s.io/v1
+          kind: Ingress
+          metadata:
+            name: k8s-mcp-ingress
+            namespace: sre-copilot
+            annotations:
+              kubernetes.io/ingress.class: nginx
+          spec:
+            rules:
+            - host: k8s-mcp.${EXTERNAL_IP}.nip.io
+              http:
+                paths:
+                - path: /
+                  pathType: Prefix
+                  backend:
+                    service:
+                      name: k8s-mcp-web
+                      port:
+                        number: 80
+          EOF
+
+      - name: Wait for MCP Server deployment
+        run: |
+          echo "Waiting for MCP Server deployment..."
+          kubectl -n sre-copilot wait --for=condition=available deployment/k8s-mcp-web --timeout=300s
+
+      - name: Verify MCP Server deployment
+        run: |
+          echo "Verifying MCP Server deployment..."
+          kubectl -n sre-copilot get pods
+          kubectl -n sre-copilot get services
+          kubectl -n sre-copilot get ingress
+          kubectl -n sre-copilot logs deploy/k8s-mcp-web --tail=20
+
+      - name: Display MCP Server URLs
+        run: |
+          echo " MCP Server deployment completed!"
+          echo ""
+          echo " MCP Server Web UI URL: http://k8s-mcp.${EXTERNAL_IP}.nip.io/"
+          echo " Access the Web UI at the URL above"
+          echo ""
+          echo " To run the MCP server locally:"
+          echo "   cd temp_mcp_server"
+          echo "   python -m venv .venv && source .venv/bin/activate"
+          echo "   pip install -e .[dev]"
+          echo "   python src/mcp_server.py"
           
           # Check ingress
           kubectl get ingress -A
