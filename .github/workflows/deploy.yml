@@ -51,8 +51,13 @@ on:
         required: false
         default: false
         type: boolean
-      run_application_deployment:
+      run_app_deploy:
         description: 'Run Weather App deployment?'
+        required: false
+        default: false
+        type: boolean
+      run_mcp_deploy:
+        description: 'Run MCP Server deployment?'
         required: false
         default: false
         type: boolean
@@ -205,7 +210,7 @@ jobs:
           esac
 
   weather-app-deploy:
-    if: ${{ github.event.inputs.run_application_deployment == 'true' }}
+    if: ${{ github.event.inputs.run_app_deploy == 'true' }}
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -361,7 +366,7 @@ jobs:
           APP_IMAGE: ${{ env.APP_IMAGE }}
 
       - name: Create Kubernetes Secrets
-        if: ${{ github.event.inputs.run_application_deployment == 'true' }}
+        if: ${{ github.event.inputs.run_app_deploy == 'true' }}
         run: |
           # Create weather-app-secret with AI keys only (Open-Meteo doesn't require API key)
           kubectl create secret generic weather-app-secret \
@@ -390,7 +395,7 @@ jobs:
           echo "WEATHER_APP_REPLICAS_MAX=$WEATHER_APP_HPA_MAX" >> $GITHUB_ENV
 
       - name: Deploy External MCP Integration
-        if: ${{ github.event.inputs.run_application_deployment == 'true' }}
+        if: ${{ github.event.inputs.run_mcp_deploy == 'true' }}
         run: |
           PROVIDER="${{ github.event.inputs.mcp_provider }}"
           MCP_REPO_URL="${{ github.event.inputs.mcp_repo_url }}"
@@ -575,7 +580,7 @@ jobs:
           curl -f "http://app.${EXTERNAL_IP}.nip.io/" || exit 1
 
   verify-deployment:
-    if: ${{ github.event.inputs.run_application_deployment == 'true' }}
+    if: ${{ github.event.inputs.run_app_deploy == 'true' || github.event.inputs.run_mcp_deploy == 'true' }}
     needs: [weather-app-deploy, mcp-server-deploy]
     runs-on: ubuntu-latest
     steps:
@@ -628,8 +633,7 @@ jobs:
           kubectl get hpa -A
 
   mcp-server-deploy:
-    if: ${{ github.event.inputs.run_application_deployment == 'true' }}
-    needs: weather-app-deploy
+    if: ${{ github.event.inputs.run_mcp_deploy == 'true' }}
     runs-on: ubuntu-latest
     defaults:
       run:
