@@ -776,25 +776,25 @@ jobs:
           fi
           
           # Use existing ingress configuration with envsubst (proven pattern from main deployment)
-          cp k8s/mcp-server/ingress.yaml k8s/mcp-server/temp.yaml && envsubst < k8s/mcp-server/temp.yaml > k8s/mcp-server/ingress-final.yaml && rm k8s/mcp-server/temp.yaml
+          cp k8s/mcp-server/ingress.yaml k8s/mcp-server/temp.yaml && envsubst < k8s/mcp-server/temp.yaml > k8s/mcp-server/ingress.yaml && rm k8s/mcp-server/temp.yaml
           
           # Verify substitution worked
-          if grep -q "\${EXTERNAL_IP}" k8s/mcp-server/ingress-final.yaml; then
+          if grep -q "\${EXTERNAL_IP}" k8s/mcp-server/ingress.yaml; then
             echo "❌ envsubst failed - still contains \${EXTERNAL_IP}"
             echo "🔧 Trying sed fallback..."
-            sed -i "s/\${EXTERNAL_IP}/$EXTERNAL_IP/g" k8s/mcp-server/ingress-final.yaml
+            sed -i "s/\${EXTERNAL_IP}/$EXTERNAL_IP/g" k8s/mcp-server/ingress.yaml
           fi
           
           echo "Generated MCP ingress file:"
-          cat k8s/mcp-server/ingress-final.yaml
+          cat k8s/mcp-server/ingress.yaml
           
           # Final verification before applying
-          if grep -q "\${EXTERNAL_IP}" k8s/mcp-server/ingress-final.yaml; then
+          if grep -q "\${EXTERNAL_IP}" k8s/mcp-server/ingress.yaml; then
             echo "❌ CRITICAL: Ingress still contains unsubstituted variables!"
             exit 1
           fi
           
-          kubectl apply -f k8s/mcp-server/ingress-final.yaml
+          kubectl apply -f k8s/mcp-server/ingress.yaml
 
       - name: Wait for MCP Server deployment
         run: |
