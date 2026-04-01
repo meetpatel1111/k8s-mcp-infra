@@ -597,6 +597,22 @@ jobs:
         with:
           version: 'latest'
 
+      # ---------- Terraform Init for reading outputs ----------
+      - name: Terraform Init (for reading outputs) — shared backend
+        run: |
+          cd "${TF_DIR}"
+          ENVIRONMENT="${{ github.event.inputs.environment }}"
+          RG_NAME="${BACKEND_RG}"
+          SA_NAME="${BACKEND_SA}"
+          CONTAINER_NAME="${BACKEND_CONTAINER}"
+          KEY_PATH="aks/${ENVIRONMENT}.tfstate"
+
+          terraform init -input=false -reconfigure \
+            -backend-config="resource_group_name=${RG_NAME}" \
+            -backend-config="storage_account_name=${SA_NAME}" \
+            -backend-config="container_name=${CONTAINER_NAME}" \
+            -backend-config="key=${KEY_PATH}"
+
       - name: Get AKS kubeconfig
         run: |
           RG_NAME=$(terraform -chdir="${TF_DIR}" output -raw resource_group_name)
@@ -639,6 +655,22 @@ jobs:
 
       - name: Verify kubectl version
         run: kubectl version --client
+
+      # ---------- Terraform Init for reading outputs ----------
+      - name: Terraform Init (for reading outputs) — shared backend
+        run: |
+          cd "${TF_DIR}"
+          ENVIRONMENT="${{ github.event.inputs.environment }}"
+          RG_NAME="${BACKEND_RG}"
+          SA_NAME="${BACKEND_SA}"
+          CONTAINER_NAME="${BACKEND_CONTAINER}"
+          KEY_PATH="aks/${ENVIRONMENT}.tfstate"
+
+          terraform init -input=false -reconfigure \
+            -backend-config="resource_group_name=${RG_NAME}" \
+            -backend-config="storage_account_name=${SA_NAME}" \
+            -backend-config="container_name=${CONTAINER_NAME}" \
+            -backend-config="key=${KEY_PATH}"
 
       # ---------- get kubeconfig ----------
       - name: Get AKS kubeconfig
