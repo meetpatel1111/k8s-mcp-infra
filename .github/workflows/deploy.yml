@@ -120,6 +120,13 @@ jobs:
         with:
           terraform_version: 1.14.0
 
+      - name: Clean Terraform Cache
+        run: |
+          cd terraform
+          rm -rf .terraform
+          rm -f terraform.lock.hcl
+          echo "Terraform cache cleaned"
+
       - name: Set ENV
         run: |
           echo "ENVIRONMENT=${{ github.event.inputs.environment }}" >> $GITHUB_ENV
@@ -222,6 +229,13 @@ jobs:
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.14.0
+
+      - name: Clean Terraform Cache
+        run: |
+          cd terraform
+          rm -rf .terraform
+          rm -f terraform.lock.hcl
+          echo "Terraform cache cleaned"
 
       - name: Setup kubectl
         uses: azure/setup-kubectl@v4

@@ -2,7 +2,7 @@
 # Override default values for test deployment
 
 environment         = "test"
-location            = "East US"
+location            = "Central India"
 resource_group_name = "rg-aks-weather-mcp-test"
 cluster_name        = "aks-weather-mcp-test"
 dns_prefix          = "aks-weather-test"
