@@ -5,7 +5,7 @@ metadata:
   name: app
   namespace: default
 spec:
-  replicas: ${APP_REPLICAS_MIN}
+  replicas: ${WEATHER_APP_REPLICAS_MIN}
   selector:
     matchLabels:
       app: app
@@ -65,8 +65,8 @@ spec:
     apiVersion: apps/v1
     kind: Deployment
     name: app
-  minReplicas: ${APP_REPLICAS_MIN}
-  maxReplicas: ${APP_REPLICAS_MAX}
+  minReplicas: ${WEATHER_APP_REPLICAS_MIN}
+  maxReplicas: ${WEATHER_APP_REPLICAS_MAX}
   metrics:
     - type: Resource
       resource:

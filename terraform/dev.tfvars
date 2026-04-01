@@ -21,12 +21,12 @@ user_node_count   = 1
 user_node_vm_size = "Standard_D2s_v3"
 
 # Replica counts
-k8sgpt_replicas = 1
-app_replicas    = 2
+k8s_mcp_replicas    = 1
+weather_app_replicas = 2
 
 # HPA (Horizontal Pod Autoscaler) settings
-k8sgpt_hpa_max = 3
-app_hpa_max    = 5
+k8s_mcp_hpa_max    = 3
+weather_app_hpa_max = 5
 
 # Additional tags for development
 tags = {

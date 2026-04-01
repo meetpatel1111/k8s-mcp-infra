@@ -374,20 +374,20 @@ jobs:
         run: |
           TFVARS_FILE="${{ github.event.inputs.environment }}.tfvars"
           ENVFILE="${TF_DIR}/${TFVARS_FILE}"
-          export K8SGPT_REPLICAS=$(grep k8sgpt_replicas "$ENVFILE" | awk -F'=' '{print $2}' | xargs)
-          export APP_REPLICAS=$(grep app_replicas "$ENVFILE" | awk -F'=' '{print $2}' | xargs || echo "2")
+          export K8S_MCP_REPLICAS=$(grep k8s_mcp_replicas "$ENVFILE" | awk -F'=' '{print $2}' | xargs || echo "1")
+          export WEATHER_APP_REPLICAS=$(grep weather_app_replicas "$ENVFILE" | awk -F'=' '{print $2}' | xargs || echo "2")
 
-          export K8SGPT_HPA_MIN=$K8SGPT_REPLICAS
-          export K8SGPT_HPA_MAX=$(grep k8sgpt_hpa_max "$ENVFILE" | awk -F'=' '{print $2}' | xargs)
-          export APP_HPA_MIN=$APP_REPLICAS
-          export APP_HPA_MAX=$(grep app_hpa_max "$ENVFILE" | awk -F'=' '{print $2}' | xargs || echo "5")
+          export K8S_MCP_HPA_MIN=$K8S_MCP_REPLICAS
+          export K8S_MCP_HPA_MAX=$(grep k8s_mcp_hpa_max "$ENVFILE" | awk -F'=' '{print $2}' | xargs || echo "3")
+          export WEATHER_APP_HPA_MIN=$WEATHER_APP_REPLICAS
+          export WEATHER_APP_HPA_MAX=$(grep weather_app_hpa_max "$ENVFILE" | awk -F'=' '{print $2}' | xargs || echo "5")
 
-          echo "K8SGPT_REPLICAS=$K8SGPT_REPLICAS" >> $GITHUB_ENV
-          echo "APP_REPLICAS=$APP_REPLICAS" >> $GITHUB_ENV
-          echo "K8SGPT_REPLICAS_MIN=$K8SGPT_HPA_MIN" >> $GITHUB_ENV
-          echo "K8SGPT_REPLICAS_MAX=$K8SGPT_HPA_MAX" >> $GITHUB_ENV
-          echo "APP_REPLICAS_MIN=$APP_HPA_MIN" >> $GITHUB_ENV
-          echo "APP_REPLICAS_MAX=$APP_HPA_MAX" >> $GITHUB_ENV
+          echo "K8S_MCP_REPLICAS=$K8S_MCP_REPLICAS" >> $GITHUB_ENV
+          echo "WEATHER_APP_REPLICAS=$WEATHER_APP_REPLICAS" >> $GITHUB_ENV
+          echo "K8S_MCP_REPLICAS_MIN=$K8S_MCP_HPA_MIN" >> $GITHUB_ENV
+          echo "K8S_MCP_REPLICAS_MAX=$K8S_MCP_HPA_MAX" >> $GITHUB_ENV
+          echo "WEATHER_APP_REPLICAS_MIN=$WEATHER_APP_HPA_MIN" >> $GITHUB_ENV
+          echo "WEATHER_APP_REPLICAS_MAX=$WEATHER_APP_HPA_MAX" >> $GITHUB_ENV
 
       - name: Deploy External MCP Integration
         if: ${{ github.event.inputs.run_application_deployment == 'true' }}
