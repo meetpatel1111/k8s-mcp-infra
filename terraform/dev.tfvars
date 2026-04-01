@@ -16,6 +16,18 @@ system_node_min_count = 1
 system_node_max_count = 3
 system_node_vm_size   = "Standard_D2s_v3"
 
+# Replica counts
+nginx_replicas = 2
+nodejs_replicas = 2
+k8sgpt_replicas = 1
+app_replicas = 2
+
+# HPA (Horizontal Pod Autoscaler) settings
+nginx_hpa_max = 5
+nodejs_hpa_max = 5
+k8sgpt_hpa_max = 3
+app_hpa_max = 5
+
 # Additional tags for development
 tags = {
   environment = "dev"

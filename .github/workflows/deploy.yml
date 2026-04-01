@@ -26,6 +26,21 @@ on:
         required: true
         default: 'https://github.com/vikas0105/MCP_Servers'
         type: string
+      app_repo_url:
+        description: 'App Repository URL (e.g., https://github.com/meetpatel1111/WeatherPulse)'
+        required: true
+        default: 'https://github.com/meetpatel1111/WeatherPulse'
+        type: string
+      app_repo_branch:
+        description: 'App Repository Branch'
+        required: true
+        default: 'main'
+        type: string
+      app_dockerfile:
+        description: 'Dockerfile content for app (leave empty for default)'
+        required: false
+        default: ''
+        type: string
       run_security_scan:
         description: 'Run security scans only?'
         required: false
@@ -276,22 +291,34 @@ jobs:
           echo "ACR_SERVER=$ACR_SERVER" >> $GITHUB_ENV
           az acr login --name "$ACR_NAME"
 
-      - name: Build & Push Weather App Image (ACR)
+      - name: Build & Push App Image (ACR)
         run: |
           TAG="${{ github.event.inputs.environment }}"       
-          WEATHER_IMAGE="${ACR_SERVER}/weather-app:${TAG}"
-          echo "WEATHER_IMAGE=$WEATHER_IMAGE" >> $GITHUB_ENV
+          APP_IMAGE="${ACR_SERVER}/app:${TAG}"
+          echo "APP_IMAGE=$APP_IMAGE" >> $GITHUB_ENV
           
-          # Clone WeatherPulse repository
-          git clone https://github.com/meetpatel1111/WeatherPulse.git
-          cd WeatherPulse
+          # Clone app repository
+          git clone ${{ github.event.inputs.app_repo_url }}
+          REPO_NAME=$(basename "${{ github.event.inputs.app_repo_url }}" .git)
+          cd "$REPO_NAME"
           
-          # Create Dockerfile for WeatherPulse using printf
-          printf "FROM nginx:alpine\nCOPY index.html /usr/share/nginx/html/\nCOPY script.js /usr/share/nginx/html/\nCOPY styles.css /usr/share/nginx/html/\nRUN echo 'server { listen 80; root /usr/share/nginx/html; index index.html; location / { try_files \$uri \$uri/ /index.html; } }' > /etc/nginx/conf.d/default.conf\nEXPOSE 80\nCMD [\"nginx\", \"-g\", \"daemon off;\"]\n" > Dockerfile
+          # Checkout specific branch if provided
+          if [ "${{ github.event.inputs.app_repo_branch }}" != "main" ]; then
+            git checkout "${{ github.event.inputs.app_repo_branch }}"
+          fi
           
-          # Build and push weather app image
-          docker build --no-cache -t "$WEATHER_IMAGE" .
-          docker push "$WEATHER_IMAGE"
+          # Create Dockerfile
+          if [ -n "${{ github.event.inputs.app_dockerfile }}" ]; then
+            # Use custom Dockerfile from input
+            echo "${{ github.event.inputs.app_dockerfile }}" > Dockerfile
+          else
+            # Default Dockerfile for static web apps
+            printf "FROM nginx:alpine\nCOPY . /usr/share/nginx/html/\nRUN echo 'server { listen 80; root /usr/share/nginx/html; index index.html; location / { try_files \$uri \$uri/ /index.html; } }' > /etc/nginx/conf.d/default.conf\nEXPOSE 80\nCMD [\"nginx\", \"-g\", \"daemon off;\"]\n" > Dockerfile
+          fi
+          
+          # Build and push app image
+          docker build --no-cache -t "$APP_IMAGE" .
+          docker push "$APP_IMAGE"
 
       - name: Build & Push MCP Servers Image (ACR)
         run: |
@@ -318,15 +345,15 @@ jobs:
         env:
           MCP_SERVERS_IMAGE: ${{ env.MCP_SERVERS_IMAGE }}
 
-      - name: Run Trivy scan on weather app
+      - name: Run Trivy scan on app
         uses: aquasecurity/trivy-action@0.35.0
         with:
-          image-ref: ${{ env.WEATHER_IMAGE }}
+          image-ref: ${{ env.APP_IMAGE }}
           format: table
           exit-code: '0'
           severity: 'CRITICAL,HIGH'
         env:
-          WEATHER_IMAGE: ${{ env.WEATHER_IMAGE }}
+          APP_IMAGE: ${{ env.APP_IMAGE }}
 
       - name: Create Kubernetes Secrets
         run: |
@@ -352,16 +379,36 @@ jobs:
           docker push "$WEATHER_IMAGE"
           cd ..
 
-      - name: Apply Kubernetes manifests
+      - name: Export replicas and HPA settings from TFVARS
         run: |
-          # Apply manifests for your weather application
-          kubectl apply -f k8s/weather-service.yaml
-          
-          # Apply weather app deployment with environment substitution
-          envsubst < k8s/weather-app-deployment.yaml | kubectl apply -f -
-          
-          # Wait for deployment
-          kubectl rollout status deployment/weather-app --timeout=300s
+          TFVARS_FILE="${{ github.event.inputs.environment }}.tfvars"
+          ENVFILE="${TF_DIR}/${TFVARS_FILE}"
+          export NGINX_REPLICAS=$(grep nginx_replicas "$ENVFILE" | awk -F'=' '{print $2}' | xargs)
+          export NODEJS_REPLICAS=$(grep nodejs_replicas "$ENVFILE" | awk -F'=' '{print $2}' | xargs)
+          export K8SGPT_REPLICAS=$(grep k8sgpt_replicas "$ENVFILE" | awk -F'=' '{print $2}' | xargs)
+          export APP_REPLICAS=$(grep app_replicas "$ENVFILE" | awk -F'=' '{print $2}' | xargs || echo "2")
+
+          export NGINX_HPA_MIN=$NGINX_REPLICAS
+          export NGINX_HPA_MAX=$(grep nginx_hpa_max "$ENVFILE" | awk -F'=' '{print $2}' | xargs)
+          export NODEJS_HPA_MIN=$NODEJS_REPLICAS
+          export NODEJS_HPA_MAX=$(grep nodejs_hpa_max "$ENVFILE" | awk -F'=' '{print $2}' | xargs)
+          export K8SGPT_HPA_MIN=$K8SGPT_REPLICAS
+          export K8SGPT_HPA_MAX=$(grep k8sgpt_hpa_max "$ENVFILE" | awk -F'=' '{print $2}' | xargs)
+          export APP_HPA_MIN=$APP_REPLICAS
+          export APP_HPA_MAX=$(grep app_hpa_max "$ENVFILE" | awk -F'=' '{print $2}' | xargs || echo "5")
+
+          echo "NGINX_REPLICAS=$NGINX_REPLICAS" >> $GITHUB_ENV
+          echo "NODEJS_REPLICAS=$NODEJS_REPLICAS" >> $GITHUB_ENV
+          echo "K8SGPT_REPLICAS=$K8SGPT_REPLICAS" >> $GITHUB_ENV
+          echo "APP_REPLICAS=$APP_REPLICAS" >> $GITHUB_ENV
+          echo "NGINX_HPA_MIN=$NGINX_HPA_MIN" >> $GITHUB_ENV
+          echo "NGINX_HPA_MAX=$NGINX_HPA_MAX" >> $GITHUB_ENV
+          echo "NODEJS_HPA_MIN=$NODEJS_HPA_MIN" >> $GITHUB_ENV
+          echo "NODEJS_HPA_MAX=$NODEJS_HPA_MAX" >> $GITHUB_ENV
+          echo "K8SGPT_HPA_MIN=$K8SGPT_HPA_MIN" >> $GITHUB_ENV
+          echo "K8SGPT_HPA_MAX=$K8SGPT_HPA_MAX" >> $GITHUB_ENV
+          echo "APP_HPA_MIN=$APP_HPA_MIN" >> $GITHUB_ENV
+          echo "APP_HPA_MAX=$APP_HPA_MAX" >> $GITHUB_ENV
 
       - name: Deploy External MCP Integration
         run: |
@@ -426,18 +473,63 @@ jobs:
       - name: Wait for Prometheus to be ready
         run: |
           kubectl -n monitoring rollout status deployment/prometheus-kube-prometheus-stack --timeout=300s
-
       - name: Create AI MCP Service Monitor
         run: |
           envsubst < k8s/mcp-service-monitors.yaml | kubectl apply -f -
 
-      - name: Deploy Ingress Controller
+      - name: Apply Kubernetes Deployments & Services (Azure)
         run: |
           kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.13.0/deploy/static/provider/cloud/deploy.yaml
           kubectl wait --namespace ingress-nginx \
               --for=condition=ready pod \
               --selector=app.kubernetes.io/component=controller \
               --timeout=300s
+
+          PROVIDER="${{ github.event.inputs.mcp_provider }}"
+          ENVIRONMENT="${{ github.event.inputs.environment }}"
+
+          # Wait for the ingress-nginx Service LoadBalancer IP (or hostname)
+          echo "Waiting for ingress-nginx controller LoadBalancer IP..."
+          LB_SVC_NS=ingress-nginx
+          LB_SVC_NAME=ingress-nginx-controller
+          MAX_ATTEMPTS=30
+          SLEEP_SECS=10
+          EXTERNAL_IP=""
+
+          for i in $(seq 1 $MAX_ATTEMPTS); do
+            # first try ip, then hostname (some Azure setups use ip, some use hostname)
+            EXTERNAL_IP=$(kubectl -n $LB_SVC_NS get svc $LB_SVC_NAME -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)
+            if [ -z "$EXTERNAL_IP" ]; then
+              EXTERNAL_IP=$(kubectl -n $LB_SVC_NS get svc $LB_SVC_NAME -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || true)
+            fi
+
+            if [ -n "$EXTERNAL_IP" ]; then
+              echo "Found ingress controller LB: $EXTERNAL_IP"
+              break
+            fi
+
+            echo "Attempt $i/$MAX_ATTEMPTS - LB IP not yet assigned. Sleeping ${SLEEP_SECS}s..."
+            sleep $SLEEP_SECS
+          done
+
+          if [ -z "$EXTERNAL_IP" ]; then
+            echo "ERROR: ingress controller LoadBalancer IP/hostname was not assigned within timeout."
+            echo "Check: kubectl -n $LB_SVC_NS get svc $LB_SVC_NAME -o wide"
+            exit 1
+          fi
+
+          # Export for later steps (GitHub Actions environment)
+          echo "EXTERNAL_IP=$EXTERNAL_IP" >> $GITHUB_ENV
+          export EXTERNAL_IP
+
+          # Render & apply application manifests with envsubst
+          cp k8s/app-deployment.yaml k8s/temp.yaml && envsubst < k8s/temp.yaml > k8s/app-deployment.yaml && rm k8s/temp.yaml && kubectl apply -f k8s/app-deployment.yaml
+          cp k8s/nginx.yaml k8s/temp.yaml && envsubst < k8s/temp.yaml > k8s/nginx.yaml && rm k8s/temp.yaml && kubectl apply -f k8s/nginx.yaml
+          cp k8s/main-ingress.yaml k8s/temp.yaml && envsubst < k8s/temp.yaml > k8s/main-ingress.yaml && rm k8s/temp.yaml && kubectl apply -f k8s/main-ingress.yaml
+
+          # Ensure core deployments roll out
+          kubectl -n default rollout status deployment/nginx --timeout=120s || echo "nginx rollout status timed out or deployment not found (continuing)"
+          kubectl -n default rollout status deployment/app --timeout=120s || echo "app rollout status timed out or deployment not found (continuing)"
 
       - name: Wait for LoadBalancer IP
         run: |
@@ -693,10 +785,9 @@ jobs:
           EXTERNAL_IP=$(kubectl -n ingress-nginx get svc ingress-nginx-controller -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "ingress LB:           $EXTERNAL_IP")
           echo "Grafana URL:          http://grafana.${EXTERNAL_IP}.nip.io/"
           echo "Prometheus URL:       http://prometheus.${EXTERNAL_IP}.nip.io/"
-          echo "NodeJS App URL:       http://nodejs.${EXTERNAL_IP}.nip.io/"
+          echo "App URL:             http://app.${EXTERNAL_IP}.nip.io/"
           echo "NGINX Demo URL:       http://nginx.${EXTERNAL_IP}.nip.io/"
           echo "K8s MCP URL:         http://k8s-mcp.${EXTERNAL_IP}.nip.io/"
-          echo "Weather App URL:      http://weather.${EXTERNAL_IP}.nip.io/"
             
           echo "=== Health Check Results ==="
           curl -s "http://weather.${EXTERNAL_IP}.nip.io/health" | jq .status
