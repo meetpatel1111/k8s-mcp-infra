@@ -563,7 +563,6 @@ jobs:
           
           echo "=== Access Information ==="
           echo "Weather App: http://app.${EXTERNAL_IP}.nip.io"
-          echo "MCP Services: http://k8s-mcp.${EXTERNAL_IP}.nip.io"
 
       - name: Test Weather App Health
         run: |
@@ -574,27 +573,6 @@ jobs:
           
           # Test root URL only
           curl -f "http://app.${EXTERNAL_IP}.nip.io/" || exit 1
-
-      - name: Test MCP Integration
-        run: |
-          EXTERNAL_IP=$(kubectl -n ingress-nginx get svc ingress-nginx-controller -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-          PROVIDER="${{ github.event.inputs.mcp_provider }}"
-          SERVICE_NAME=$([ "$PROVIDER" == "openai" ] && echo "openai-mcp-service" || echo "google-mcp-service")
-          SERVICE_PORT=$([ "$PROVIDER" == "openai" ] && echo "8080" || echo "8081")
-          
-          echo "Testing MCP integration with $PROVIDER..."
-          
-          # Test MCP service health
-          kubectl port-forward service/$SERVICE_NAME $SERVICE_PORT:8080 &
-          PORT_FORWARD_PID=$!
-          
-          sleep 5
-          
-          # Test MCP service
-          curl -f "http://localhost:$SERVICE_PORT/health" || echo "MCP service not ready yet"
-          
-          # Stop port forward
-          kill $PORT_FORWARD_PID 2>/dev/null || true
 
   verify-deployment:
     if: ${{ github.event.inputs.run_application_deployment == 'true' }}
@@ -809,6 +787,11 @@ jobs:
           kubectl -n sre-copilot get services
           kubectl -n sre-copilot get ingress
           kubectl -n sre-copilot logs deploy/k8s-mcp-web --tail=20
+          
+          # Get external IP and show MCP Services URL
+          EXTERNAL_IP=$(kubectl -n ingress-nginx get svc ingress-nginx-controller -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+          EXTERNAL_IP=$(echo $EXTERNAL_IP | sed 's/\./-/g')
+          echo "MCP Services: http://k8s-mcp.${EXTERNAL_IP}.nip.io"
 
       - name: Display MCP Server URLs
         run: |
