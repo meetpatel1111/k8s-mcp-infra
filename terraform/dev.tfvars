@@ -1,20 +1,20 @@
 # Development environment configuration
 # Override default values for development deployment
 
-environment = "dev"
-location = "Central India"
+environment         = "dev"
+location            = "Central India"
 resource_group_name = "rg-aks-weather-mcp-dev"
-cluster_name = "aks-weather-mcp-dev"
-dns_prefix = "aks-weather-dev"
+cluster_name        = "aks-weather-mcp-dev"
+dns_prefix          = "aks-weather-dev"
 
 # Kubernetes version (use latest stable for dev)
 kubernetes_version = "1.28.3"
 
 # Node pool configuration for development
-system_node_count = 2
+system_node_count     = 2
 system_node_min_count = 1
 system_node_max_count = 3
-system_node_vm_size = "Standard_DS2_v2"
+system_node_vm_size   = "Standard_DS2_v2"
 
 # Additional tags for development
 tags = {

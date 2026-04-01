@@ -2,7 +2,7 @@
 resource "azurerm_resource_group" "rg" {
   name     = var.resource_group_name
   location = var.location
-  
+
   tags = {
     environment = var.environment
     project     = "weather-mcp"
@@ -15,8 +15,8 @@ resource "random_string" "suffix" {
   length  = 8
   special = false
   upper   = false
-  numeric  = true
-  
+  numeric = true
+
   keepers = {
     rg_name = azurerm_resource_group.rg.name
   }
@@ -29,18 +29,18 @@ resource "azurerm_container_registry" "acr" {
   location            = azurerm_resource_group.rg.location
   sku                 = "Standard"
   admin_enabled       = true
-  
+
   # Network security
   network_rule_set {
     default_action = "Allow"
   }
-  
+
   # Data protection
   retention_policy {
     days    = 30
     enabled = true
   }
-  
+
   tags = {
     environment = var.environment
     project     = "weather-mcp"
@@ -55,12 +55,12 @@ resource "azurerm_kubernetes_cluster" "aks" {
   resource_group_name = azurerm_resource_group.rg.name
   dns_prefix          = var.dns_prefix
   kubernetes_version  = var.kubernetes_version
-  
+
   # Use managed identity
   identity {
     type = "SystemAssigned"
   }
-  
+
   # Default node pool with best practices
   default_node_pool {
     name                         = "system"
@@ -73,17 +73,17 @@ resource "azurerm_kubernetes_cluster" "aks" {
     min_count                    = var.system_node_min_count
     max_count                    = var.system_node_max_count
     only_critical_addons_enabled = true
-    
+
     # Node labels and taints for system pods
     labels = {
       "node-type" = "system"
     }
-    
+
     taints = {
       "node-type" = "system:NoSchedule"
     }
   }
-  
+
   # Network configuration
   network_profile {
     network_plugin     = "azure"
@@ -92,33 +92,33 @@ resource "azurerm_kubernetes_cluster" "aks" {
     dns_service_ip     = "10.96.0.10"
     docker_bridge_cidr = "172.17.0.1/16"
   }
-  
+
   # Add-on profiles
   addon_profile {
     oms_agent {
-      enabled = true
+      enabled                    = true
       log_analytics_workspace_id = azurerm_log_analytics_workspace.law.id
     }
-    
+
     azure_policy {
       enabled = true
     }
-    
+
     ingress_application_gateway {
       enabled = false # Disabled for manual ingress setup
     }
   }
-  
+
   # RBAC and Azure AD integration
   role_based_access_control {
     enabled = true
   }
-  
+
   azure_active_directory_role_based_access_control {
-    managed = true
+    managed            = true
     azure_rbac_enabled = true
   }
-  
+
   tags = {
     environment = var.environment
     project     = "weather-mcp"
@@ -132,7 +132,7 @@ resource "azurerm_virtual_network" "vnet" {
   address_space       = ["10.0.0.0/16"]
   location            = azurerm_resource_group.rg.location
   resource_group_name = azurerm_resource_group.rg.name
-  
+
   tags = {
     environment = var.environment
     project     = "weather-mcp"
@@ -146,7 +146,7 @@ resource "azurerm_subnet" "aks" {
   resource_group_name  = azurerm_resource_group.rg.name
   virtual_network_name = azurerm_virtual_network.vnet.name
   address_prefixes     = ["10.0.1.0/24"]
-  
+
   # Enforce private endpoints
   enforce_private_link_endpoint_network_policies = true
   enforce_private_link_service_network_policies  = true
@@ -159,7 +159,7 @@ resource "azurerm_log_analytics_workspace" "law" {
   resource_group_name = azurerm_resource_group.rg.name
   sku                 = "PerGB2018"
   retention_in_days   = 30
-  
+
   tags = {
     environment = var.environment
     project     = "weather-mcp"
@@ -172,6 +172,6 @@ resource "azurerm_role_assignment" "acr_pull" {
   principal_id         = azurerm_kubernetes_cluster.aks.kubelet_identity[0].object_id
   role_definition_name = "AcrPull"
   scope                = azurerm_container_registry.acr.id
-  
+
   depends_on = [azurerm_kubernetes_cluster.aks]
 }

@@ -9,7 +9,7 @@ terraform {
     # -backend-config="storage_account_name=sttfstateshared"
     # -backend-config="container_name=tfstate"
     # -backend-config="key=aks/dev.tfstate"
-    
+
     # Best practices implemented:
     # - State file encryption: Enabled by default in Azure Storage
     # - Access control: Managed through Azure RBAC
