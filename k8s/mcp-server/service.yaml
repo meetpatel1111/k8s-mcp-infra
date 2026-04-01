@@ -5,9 +5,9 @@ metadata:
   namespace: sre-copilot
 spec:
   selector:
-    app: k8s-mcp-web
+    app: k8s-mcp-web   # ✅ MUST match deployment label
   ports:
     - name: http
       port: 80
-      targetPort: 8000
+      targetPort: 8000  # ✅ matches containerPort
   type: ClusterIP

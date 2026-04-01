@@ -708,9 +708,29 @@ jobs:
 
       - name: Create MCP Server Ingress
         run: |
-          # Get external IP for ingress (FIXED: use correct AKS ingress selector)
-          EXTERNAL_IP=$(kubectl -n ingress-nginx get svc ingress-nginx-controller \
-            -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "")
+          # Get external IP for ingress with retry mechanism
+          echo "Waiting for ingress controller external IP..."
+          EXTERNAL_IP=""
+          for i in {1..10}; do
+            EXTERNAL_IP=$(kubectl -n ingress-nginx get svc ingress-nginx-controller \
+              -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "")
+            if [ -n "$EXTERNAL_IP" ]; then
+              echo "✅ External IP found: $EXTERNAL_IP"
+              break
+            fi
+            echo "⏳ Attempt $i/10: External IP not ready, waiting 30 seconds..."
+            sleep 30
+          done
+          
+          # Fallback: get node IP if ingress controller IP is not available
+          if [ -z "$EXTERNAL_IP" ]; then
+            echo "⚠️ Ingress controller IP not available, using node IP as fallback"
+            EXTERNAL_IP=$(kubectl get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="ExternalIP")].address}' 2>/dev/null || echo "")
+            if [ -z "$EXTERNAL_IP" ]; then
+              echo "❌ No external IP available, cannot create ingress"
+              exit 1
+            fi
+          fi
           
           # Export for current step (envsubst)
           export EXTERNAL_IP=$EXTERNAL_IP
@@ -724,6 +744,8 @@ jobs:
           
           # Use existing ingress configuration with envsubst (NEVER overwrite same file)
           envsubst '${EXTERNAL_IP}' < k8s/mcp-server/ingress.yaml > k8s/mcp-server/ingress-final.yaml
+          echo "Generated ingress file:"
+          cat k8s/mcp-server/ingress-final.yaml
           kubectl apply -f k8s/mcp-server/ingress-final.yaml
 
       - name: Wait for MCP Server deployment
