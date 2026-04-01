@@ -18,7 +18,7 @@ spec:
       serviceAccountName: k8s-mcp-sa
       containers:
         - name: k8s-mcp-web
-          image: ghcr.io/YOUR_ORG/k8s-mcp-mvp:latest
+          image: ${MCP_IMAGE}
           imagePullPolicy: Always
           args: ["web"]
           ports:
