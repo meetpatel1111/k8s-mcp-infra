@@ -1,9 +1,9 @@
 provider "azurerm" {
   features {}
-  
+
   # Force stable AKS API version to avoid preview APIs
   provider_source = "hashicorp/azurerm"
-  version        = "~>4.0"
+  version         = "~>4.0"
 }
 
 terraform {
