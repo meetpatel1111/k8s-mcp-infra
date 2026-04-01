@@ -654,6 +654,9 @@ jobs:
           # Build and push MCP Servers image
           docker build --no-cache -t "$MCP_IMAGE" .
           docker push "$MCP_IMAGE"
+          
+          # Export MCP_IMAGE for deployment step
+          echo "MCP_IMAGE=$MCP_IMAGE" >> $GITHUB_ENV
 
       # ---------- Deploy MCP Server ----------
       - name: Deploy MCP Server to Kubernetes
