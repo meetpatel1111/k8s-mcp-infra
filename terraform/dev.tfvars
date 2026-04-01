@@ -16,6 +16,10 @@ system_node_min_count = 1
 system_node_max_count = 3
 system_node_vm_size   = "Standard_D2s_v3"
 
+# User node pool for application workloads (no critical addons taint)
+user_node_count   = 2
+user_node_vm_size = "Standard_D2s_v3"
+
 # Replica counts
 k8sgpt_replicas = 1
 app_replicas    = 2

@@ -105,6 +105,28 @@ variable "system_node_vm_size" {
   }
 }
 
+variable "user_node_count" {
+  description = "Number of nodes in the user node pool for application workloads"
+  type        = number
+  default     = 2
+
+  validation {
+    condition     = var.user_node_count >= 1 && var.user_node_count <= 5
+    error_message = "User node count must be between 1 and 5."
+  }
+}
+
+variable "user_node_vm_size" {
+  description = "VM size for user node pool"
+  type        = string
+  default     = "Standard_DS2_v2"
+
+  validation {
+    condition     = contains(["Standard_DS2_v2", "Standard_DS3_v2", "Standard_DS4_v2", "Standard_D2s_v3", "Standard_D4s_v3"], var.user_node_vm_size)
+    error_message = "VM size must be a valid Azure VM size for AKS."
+  }
+}
+
 variable "tags" {
   description = "Additional tags to apply to all resources"
   type        = map(string)

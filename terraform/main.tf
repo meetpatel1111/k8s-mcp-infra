@@ -126,3 +126,23 @@ resource "azurerm_role_assignment" "acr_pull" {
 
   depends_on = [azurerm_kubernetes_cluster.aks]
 }
+
+# User node pool for application workloads (no critical addons taint)
+resource "azurerm_kubernetes_cluster_node_pool" "user" {
+  name                  = "user"
+  kubernetes_cluster_id = azurerm_kubernetes_cluster.aks.id
+  vm_size               = var.user_node_vm_size
+  node_count            = var.user_node_count
+  os_disk_size_gb       = 30
+  os_disk_type          = "Ephemeral"
+  vnet_subnet_id        = azurerm_subnet.aks.id
+
+  tags = {
+    environment = var.environment
+    project     = "weather-mcp"
+    managed_by  = "terraform"
+    node_type   = "user"
+  }
+
+  depends_on = [azurerm_kubernetes_cluster.aks]
+}
