@@ -72,11 +72,6 @@ resource "azurerm_kubernetes_cluster" "aks" {
     dns_service_ip = "10.96.0.10"
   }
 
-  # Azure AD integration
-  azure_active_directory_role_based_access_control {
-    azure_rbac_enabled = true
-  }
-
   tags = {
     environment = var.environment
     project     = "weather-mcp"
