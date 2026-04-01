@@ -662,6 +662,9 @@ jobs:
       - name: Deploy MCP Server to Kubernetes
         run: |
           echo "Deploying MCP Server..."
+          
+          # Set MCP_IMAGE from previous step (CRITICAL - ensure variable is available)
+          MCP_IMAGE="${ACR_SERVER}/mcp-servers:${{ github.event.inputs.environment }}"
           echo "DEBUG MCP_IMAGE is: $MCP_IMAGE"
           
           # Export MCP_IMAGE for envsubst (CRITICAL - envsubst only reads exported vars)
@@ -684,7 +687,7 @@ jobs:
           
           echo "DEBUG EXTERNAL_IP is: $EXTERNAL_IP"
           
-          # Export EXTERNAL_IP for envsubst (CRITICAL - envsubst only reads exported vars)
+          # Set EXTERNAL_IP explicitly (CRITICAL - ensure variable is available)
           export EXTERNAL_IP=$EXTERNAL_IP
           echo "DEBUG After export EXTERNAL_IP is: $EXTERNAL_IP"
           
