@@ -594,7 +594,13 @@ jobs:
           TAG="${{ github.event.inputs.environment }}"       
           MCP_IMAGE="${ACR_SERVER}/k8s-mcp-mvp:${TAG}"
           echo "MCP_IMAGE=$MCP_IMAGE" >> $GITHUB_ENV
-          cd temp_mcp_server
+          
+          # Clone MCP Servers repository with correct branch
+          git clone https://github.com/vikas0105/MCP_Servers.git
+          cd MCP_Servers
+          git checkout codex/build-mcp-server-for-kubernetes
+          
+          # Build and push MCP Server image
           docker build --no-cache -t "$MCP_IMAGE" .
           docker push "$MCP_IMAGE"
 
