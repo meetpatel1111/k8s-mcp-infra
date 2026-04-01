@@ -67,15 +67,6 @@ resource "azurerm_kubernetes_cluster" "aks" {
     min_count                    = var.system_node_min_count
     max_count                    = var.system_node_max_count
     only_critical_addons_enabled = true
-
-    # Node labels and taints for system pods
-    labels = {
-      "node-type" = "system"
-    }
-
-    taints = {
-      "node-type" = "system:NoSchedule"
-    }
   }
 
   # Network configuration
@@ -85,22 +76,6 @@ resource "azurerm_kubernetes_cluster" "aks" {
     service_cidr       = "10.96.0.0/12"
     dns_service_ip     = "10.96.0.10"
     docker_bridge_cidr = "172.17.0.1/16"
-  }
-
-  # Add-on profiles
-  addon_profile {
-    oms_agent {
-      enabled                    = true
-      log_analytics_workspace_id = azurerm_log_analytics_workspace.law.id
-    }
-
-    azure_policy {
-      enabled = true
-    }
-
-    ingress_application_gateway {
-      enabled = false # Disabled for manual ingress setup
-    }
   }
 
   # RBAC and Azure AD integration
