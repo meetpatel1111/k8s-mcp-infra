@@ -22,9 +22,9 @@ on:
         type: choice
         options: [openai, google]
       mcp_repo_url:
-        description: 'MCP Repository URL (e.g., https://github.com/user/mcp-repo)'
+        description: 'MCP Repository URL (e.g., https://github.com/k8sgpt-ai/k8sgpt)'
         required: true
-        default: 'https://github.com/your-mcp-repo/mcp-weather'
+        default: 'https://github.com/k8sgpt-ai/k8sgpt'
         type: string
       run_security_scan:
         description: 'Run security scans only?'
