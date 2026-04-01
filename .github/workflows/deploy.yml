@@ -96,22 +96,24 @@ jobs:
 
       - name: Register Azure Providers
         run: |
-          az provider register --namespace Microsoft.ContainerService
-          az provider register --namespace Microsoft.Network
-          az provider register --namespace Microsoft.Compute
-          az provider register --namespace Microsoft.Storage
-          az provider register --namespace Microsoft.ContainerRegistry
+          echo "Registering all required Azure providers..."
+          az provider register --namespace Microsoft.ContainerService --wait
+          az provider register --namespace Microsoft.Network --wait
+          az provider register --namespace Microsoft.Compute --wait
+          az provider register --namespace Microsoft.Storage --wait
+          az provider register --namespace Microsoft.ContainerRegistry --wait
           
-          # Wait for registration to complete
-          echo "Waiting for provider registration to complete..."
-          for i in {1..10}; do
-            if az provider show --namespace Microsoft.ContainerService --query "registrationState" -o tsv | grep -q "Registered"; then
-              echo "Microsoft.ContainerService provider registered successfully"
-              break
-            fi
-            echo "Attempt $i: Waiting for Microsoft.ContainerService registration..."
-              sleep 30
-          done
+          # Force provider registration with wait flag
+          echo "Ensuring provider registration is complete..."
+          az provider register --namespace Microsoft.ContainerService --wait || true
+          
+          # Verify registration state
+          echo "Checking provider registration status..."
+          az provider show --namespace Microsoft.ContainerService --query "registrationState" -o tsv
+          az provider show --namespace Microsoft.Network --query "registrationState" -o tsv
+          az provider show --namespace Microsoft.Compute --query "registrationState" -o tsv
+          az provider show --namespace Microsoft.Storage --query "registrationState" -o tsv
+          az provider show --namespace Microsoft.ContainerRegistry --query "registrationState" -o tsv
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -197,22 +199,24 @@ jobs:
 
       - name: Register Azure Providers
         run: |
-          az provider register --namespace Microsoft.ContainerService
-          az provider register --namespace Microsoft.Network
-          az provider register --namespace Microsoft.Compute
-          az provider register --namespace Microsoft.Storage
-          az provider register --namespace Microsoft.ContainerRegistry
+          echo "Registering all required Azure providers..."
+          az provider register --namespace Microsoft.ContainerService --wait
+          az provider register --namespace Microsoft.Network --wait
+          az provider register --namespace Microsoft.Compute --wait
+          az provider register --namespace Microsoft.Storage --wait
+          az provider register --namespace Microsoft.ContainerRegistry --wait
           
-          # Wait for registration to complete
-          echo "Waiting for provider registration to complete..."
-          for i in {1..10}; do
-            if az provider show --namespace Microsoft.ContainerService --query "registrationState" -o tsv | grep -q "Registered"; then
-              echo "Microsoft.ContainerService provider registered successfully"
-              break
-            fi
-            echo "Attempt $i: Waiting for Microsoft.ContainerService registration..."
-              sleep 30
-          done
+          # Force provider registration with wait flag
+          echo "Ensuring provider registration is complete..."
+          az provider register --namespace Microsoft.ContainerService --wait || true
+          
+          # Verify registration state
+          echo "Checking provider registration status..."
+          az provider show --namespace Microsoft.ContainerService --query "registrationState" -o tsv
+          az provider show --namespace Microsoft.Network --query "registrationState" -o tsv
+          az provider show --namespace Microsoft.Compute --query "registrationState" -o tsv
+          az provider show --namespace Microsoft.Storage --query "registrationState" -o tsv
+          az provider show --namespace Microsoft.ContainerRegistry --query "registrationState" -o tsv
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
