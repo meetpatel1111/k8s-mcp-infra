@@ -40,9 +40,6 @@ spec:
     - hosts:
         - app.${EXTERNAL_IP}.nip.io
         - k8s-mcp.${EXTERNAL_IP}.nip.io
-        - monitoring.${EXTERNAL_IP}.nip.io
-        - grafana.${EXTERNAL_IP}.nip.io
-        - prometheus.${EXTERNAL_IP}.nip.io
       secretName: weather-app-tls
   rules:
     # App - Main Application

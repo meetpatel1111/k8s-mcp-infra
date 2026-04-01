@@ -425,24 +425,6 @@ jobs:
             exit 1
           fi
 
-      - name: Install Prometheus for monitoring
-        run: |
-          helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
-          helm repo update
-          
-          helm upgrade --install prometheus prometheus-community/kube-prometheus-stack \
-            -n monitoring \
-            --create-namespace \
-            --wait \
-            --timeout 10m
-
-      - name: Wait for Prometheus to be ready
-        run: |
-          kubectl -n monitoring rollout status deployment/prometheus-kube-prometheus-stack --timeout=300s
-      - name: Create AI MCP Service Monitor
-        run: |
-          envsubst < k8s/mcp-service-monitors.yaml | kubectl apply -f -
-
       - name: Apply Kubernetes Deployments & Services (Azure)
         run: |
           kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.13.0/deploy/static/provider/cloud/deploy.yaml
@@ -747,8 +729,6 @@ jobs:
           
           # Get external IP for access testing
           EXTERNAL_IP=$(kubectl -n ingress-nginx get svc ingress-nginx-controller -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "ingress LB:           $EXTERNAL_IP")
-          echo "Grafana URL:          http://grafana.${EXTERNAL_IP}.nip.io/"
-          echo "Prometheus URL:       http://prometheus.${EXTERNAL_IP}.nip.io/"
           echo "App URL:             http://app.${EXTERNAL_IP}.nip.io/"
           echo "K8s MCP URL:         http://k8s-mcp.${EXTERNAL_IP}.nip.io/"
             
