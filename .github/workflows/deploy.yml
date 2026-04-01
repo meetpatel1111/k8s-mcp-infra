@@ -662,13 +662,14 @@ jobs:
       - name: Deploy MCP Server to Kubernetes
         run: |
           echo "Deploying MCP Server..."
+          echo "MCP_IMAGE is: $MCP_IMAGE"
           
           # Update deployment with correct image
           cp k8s/mcp-server/deployment.yaml k8s/mcp-server/temp-deployment.yaml
           envsubst < k8s/mcp-server/temp-deployment.yaml > k8s/mcp-server/deployment.yaml
           rm k8s/mcp-server/temp-deployment.yaml
           
-          # Deploy MCP Server using the existing k8s-mcp-server configuration
+          # Deploy MCP Server using existing k8s-mcp-server configuration
           kubectl apply -f k8s/mcp-server/rbac.yaml
           kubectl apply -f k8s/mcp-server/deployment.yaml
           kubectl apply -f k8s/mcp-server/service.yaml
