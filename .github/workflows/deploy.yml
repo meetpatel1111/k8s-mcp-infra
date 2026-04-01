@@ -384,10 +384,10 @@ jobs:
 
           echo "K8SGPT_REPLICAS=$K8SGPT_REPLICAS" >> $GITHUB_ENV
           echo "APP_REPLICAS=$APP_REPLICAS" >> $GITHUB_ENV
-          echo "K8SGPT_HPA_MIN=$K8SGPT_HPA_MIN" >> $GITHUB_ENV
-          echo "K8SGPT_HPA_MAX=$K8SGPT_HPA_MAX" >> $GITHUB_ENV
-          echo "APP_HPA_MIN=$APP_HPA_MIN" >> $GITHUB_ENV
-          echo "APP_HPA_MAX=$APP_HPA_MAX" >> $GITHUB_ENV
+          echo "K8SGPT_REPLICAS_MIN=$K8SGPT_HPA_MIN" >> $GITHUB_ENV
+          echo "K8SGPT_REPLICAS_MAX=$K8SGPT_HPA_MAX" >> $GITHUB_ENV
+          echo "APP_REPLICAS_MIN=$APP_HPA_MIN" >> $GITHUB_ENV
+          echo "APP_REPLICAS_MAX=$APP_HPA_MAX" >> $GITHUB_ENV
 
       - name: Deploy External MCP Integration
         if: ${{ github.event.inputs.run_application_deployment == 'true' }}
