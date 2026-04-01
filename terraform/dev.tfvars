@@ -14,7 +14,7 @@ kubernetes_version = "1.35.0"
 system_node_count     = 2
 system_node_min_count = 1
 system_node_max_count = 3
-system_node_vm_size   = "Standard_DS2_v2"
+system_node_vm_size   = "Standard_D2s_v3"
 
 # Additional tags for development
 tags = {
