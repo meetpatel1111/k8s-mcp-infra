@@ -599,80 +599,16 @@ jobs:
           docker push "$MCP_IMAGE"
 
       # ---------- Deploy MCP Server ----------
-      - name: Deploy MCP Servers to Kubernetes
+      - name: Deploy MCP Server to Kubernetes
         run: |
-          echo "Deploying MCP Servers..."
+          echo "Deploying MCP Server..."
           
-          # Deploy MCP Servers using the general MCP Servers
-          cat <<EOF | kubectl apply -f -
-          apiVersion: apps/v1
-          kind: Deployment
-          metadata:
-            name: mcp-servers
-            namespace: default
-            labels:
-              app: mcp-servers
-          spec:
-            replicas: 1
-            selector:
-              matchLabels:
-                app: mcp-servers
-            template:
-              metadata:
-                labels:
-                  app: mcp-servers
-              spec:
-                containers:
-                - name: mcp-servers
-                  image: ${MCP_SERVERS_IMAGE}
-                  imagePullPolicy: Always
-                  ports:
-                    - containerPort: 8000
-                  env:
-                    - name: OPENAI_API_KEY
-                      valueFrom:
-                        secretKeyRef:
-                          name: mcp-servers-secret
-                          key: OPENAI_API_KEY
-                  readinessProbe:
-                    httpGet:
-                      path: /
-                      port: 8000
-                    initialDelaySeconds: 5
-                    periodSeconds: 10
-                  livenessProbe:
-                    httpGet:
-                      path: /
-                      port: 8000
-                    initialDelaySeconds: 15
-                    periodSeconds: 20
-                  resources:
-                    requests:
-                      cpu: "100m"
-                      memory: "128Mi"
-                    limits:
-                      cpu: "500m"
-                      memory: "512Mi"
-          EOF
+          # Deploy MCP Server using the existing k8s-mcp-server configuration
+          kubectl apply -f k8s/mcp-server/rbac.yaml
+          kubectl apply -f k8s/mcp-server/deployment.yaml
+          kubectl apply -f k8s/mcp-server/service.yaml
 
-          # Create service for MCP Servers
-          cat <<EOF | kubectl apply -f -
-          apiVersion: v1
-          kind: Service
-          metadata:
-            name: mcp-servers
-            namespace: default
-          spec:
-            selector:
-              app: mcp-servers
-            ports:
-            - name: http
-              port: 80
-              targetPort: 8000
-            type: ClusterIP
-          EOF
-
-      - name: Create MCP Servers Ingress
+      - name: Create MCP Server Ingress
         run: |
           # Get external IP for ingress
           EXTERNAL_IP=$(kubectl get service -l app=nginx-ingress-controller -o jsonpath='{.items[0].status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "")
@@ -688,52 +624,36 @@ jobs:
           
           echo "EXTERNAL_IP=$EXTERNAL_IP" >> $GITHUB_ENV
           
-          # Create ingress with nip.io URL
-          cat <<EOF | kubectl apply -f -
-          apiVersion: networking.k8s.io/v1
-          kind: Ingress
-          metadata:
-            name: mcp-servers-ingress
-            namespace: default
-            annotations:
-              kubernetes.io/ingress.class: nginx
-          spec:
-            rules:
-            - host: mcp-servers.${EXTERNAL_IP}.nip.io
-              http:
-                paths:
-                - path: /
-                  pathType: Prefix
-                  backend:
-                    service:
-                      name: mcp-servers
-                      port:
-                        number: 80
-          EOF
+          # Use existing ingress configuration with envsubst
+          cp k8s/mcp-server/ingress.yaml k8s/mcp-server/temp.yaml
+          envsubst < k8s/mcp-server/temp.yaml > k8s/mcp-server/ingress.yaml
+          rm k8s/mcp-server/temp.yaml
+          kubectl apply -f k8s/mcp-server/ingress.yaml
 
-      - name: Wait for MCP Servers deployment
+      - name: Wait for MCP Server deployment
         run: |
-          echo "Waiting for MCP Servers deployment..."
-          kubectl -n default wait --for=condition=available deployment/mcp-servers --timeout=300s
+          echo "Waiting for MCP Server deployment..."
+          kubectl -n sre-copilot wait --for=condition=available deployment/k8s-mcp-web --timeout=300s
 
-      - name: Verify MCP Servers deployment
+      - name: Verify MCP Server deployment
         run: |
-          echo "Verifying MCP Servers deployment..."
-          kubectl -n default get pods
-          kubectl -n default get services
-          kubectl -n default get ingress
-          kubectl -n default logs deploy/mcp-servers --tail=20
+          echo "Verifying MCP Server deployment..."
+          kubectl -n sre-copilot get pods
+          kubectl -n sre-copilot get services
+          kubectl -n sre-copilot get ingress
+          kubectl -n sre-copilot logs deploy/k8s-mcp-web --tail=20
 
-      - name: Display MCP Servers URLs
+      - name: Display MCP Server URLs
         run: |
-          echo "🎉 MCP Servers deployment completed!"
+          echo "🎉 MCP Server deployment completed!"
           echo ""
-          echo "🌐 MCP Servers Web UI URL: http://mcp-servers.${EXTERNAL_IP}.nip.io/"
+          echo "🌐 MCP Server Web UI URL: http://k8s-mcp.${EXTERNAL_IP}.nip.io/"
           echo "📊 Access the Web UI at the URL above"
           echo ""
-          echo "🔧 To run the MCP servers locally:"
+          echo "🔧 To run the MCP server locally:"
           echo "   git clone https://github.com/vikas0105/MCP_Servers.git"
           echo "   cd MCP_Servers"
+          echo "   git checkout codex/build-mcp-server-for-kubernetes"
           echo "   python -m venv .venv && source .venv/bin/activate"
           echo "   pip install -e .[dev]"
           echo "   python src/mcp_server.py"
@@ -756,7 +676,7 @@ jobs:
           echo "Prometheus URL:       http://prometheus.${EXTERNAL_IP}.nip.io/"
           echo "NodeJS App URL:       http://nodejs.${EXTERNAL_IP}.nip.io/"
           echo "NGINX Demo URL:       http://nginx.${EXTERNAL_IP}.nip.io/"
-          echo "MCP Servers URL:      http://mcp-servers.${EXTERNAL_IP}.nip.io/"
+          echo "K8s MCP URL:         http://k8s-mcp.${EXTERNAL_IP}.nip.io/"
           echo "Weather App URL:      http://weather.${EXTERNAL_IP}.nip.io/"
             
           echo "=== Health Check Results ==="
