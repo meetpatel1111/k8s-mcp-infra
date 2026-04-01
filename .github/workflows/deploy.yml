@@ -820,6 +820,21 @@ jobs:
       - name: Wait for MCP Server deployment
         run: |
           echo "Waiting for MCP Server deployment..."
+          
+          # Debug: Check deployment status first
+          echo "=== Deployment status ==="
+          kubectl -n sre-copilot get deployment k8s-mcp-web -o yaml || true
+          
+          echo "=== Pod status ==="
+          kubectl -n sre-copilot get pods -l app=k8s-mcp-web -o wide || true
+          
+          echo "=== Pod events ==="
+          kubectl -n sre-copilot get events --field-selector involvedObject.name=k8s-mcp-web --sort-by=.lastTimestamp | tail -20 || true
+          
+          echo "=== Pod logs (if any) ==="
+          kubectl -n sre-copilot logs -l app=k8s-mcp-web --tail=50 || true
+          
+          # Now wait with longer timeout
           kubectl -n sre-copilot wait --for=condition=available deployment/k8s-mcp-web --timeout=300s
 
       - name: Verify MCP Server deployment
