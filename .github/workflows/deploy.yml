@@ -390,6 +390,7 @@ jobs:
         run: |
           PROVIDER="${{ github.event.inputs.mcp_provider }}"
           MCP_REPO_URL="${{ github.event.inputs.mcp_repo_url }}"
+          MCP_REPO_BRANCH="codex/build-mcp-server-for-kubernetes"
           echo "MCP_PROVIDER=$PROVIDER" >> $GITHUB_ENV
           echo "MCP_REPO_URL=$MCP_REPO_URL" >> $GITHUB_ENV
           
@@ -400,38 +401,27 @@ jobs:
           # Clone and deploy external MCP repository
           echo "Cloning MCP repository: $MCP_REPO_URL"
           git clone $MCP_REPO_URL ./mcp-repo
+          cd ./mcp-repo
+          
+          # Checkout specific branch for MCP server
+          git checkout $MCP_REPO_BRANCH
+          echo "Checked out branch: $MCP_REPO_BRANCH"
           
           # Check if MCP repo has Dockerfile
-          if [ -f "./mcp-repo/Dockerfile" ]; then
+          if [ -f "Dockerfile" ]; then
             echo "Building and deploying MCP from Dockerfile..."
-            MCP_IMAGE="${ACR_SERVER}/mcp-weather:${{ github.event.inputs.environment }}"
+            MCP_IMAGE="${ACR_SERVER}/mcp-servers:${{ github.event.inputs.environment }}"
             echo "MCP_IMAGE=$MCP_IMAGE" >> $GITHUB_ENV
             
-            cd ./mcp-repo
             docker build --no-cache -t "$MCP_IMAGE" .
             docker push "$MCP_IMAGE"
             cd ..
             
-            # Deploy MCP using external manifest
-            envsubst < k8s/external-mcp-deployment.yaml | kubectl apply -f -
-            
-          elif [ -f "./mcp-repo/package.json" ]; then
-            echo "Deploying MCP from Node.js package.json..."
-            # Deploy as Node.js application
-            MCP_IMAGE="${ACR_SERVER}/mcp-weather-nodejs:${{ github.event.inputs.environment }}"
-            echo "MCP_IMAGE=$MCP_IMAGE" >> $GITHUB_ENV
-            
-            cd ./mcp-repo
-            cp ../k8s/nodejs-dockerfile.template ./Dockerfile
-            docker build --no-cache -t "$MCP_IMAGE" .
-            docker push "$MCP_IMAGE"
-            cd ..
-            
-            # Deploy MCP using external manifest
-            envsubst < k8s/external-mcp-deployment.yaml | kubectl apply -f -
+            # Deploy MCP using existing manifests
+            cp k8s/mcp-server/deployment.yaml k8s/temp.yaml && envsubst < k8s/temp.yaml > k8s/mcp-server/deployment.yaml && rm k8s/temp.yaml && kubectl apply -f k8s/mcp-server/
             
           else
-            echo "No Dockerfile or package.json found in MCP repository. Please check the repository structure."
+            echo "No Dockerfile found in MCP repository. Please check repository structure."
             exit 1
           fi
 
