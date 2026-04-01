@@ -72,7 +72,7 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run Trivy scan on base images
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@0.35.0
         with:
           image-ref: node:18-alpine
           format: table
@@ -230,7 +230,7 @@ jobs:
           docker push "$WEATHER_IMAGE"
 
       - name: Run Trivy scan on weather app
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@0.35.0
         with:
           image-ref: ${{ env.WEATHER_IMAGE }}
           format: table

@@ -1,62 +1,36 @@
 #!/usr/bin/env bash
-set -euo pipefail
-
-# Terraform Backend Pre-bootstrap Script
-# Creates Azure Storage Account and Container for Terraform remote state
-# Follows Azure security and reliability best practices
+set -e
 
 RG_NAME=$1
 SA_NAME=$2
 CONTAINER_NAME=$3
 LOCATION=${4:-eastus}
 
-# Validate inputs
-if [[ -z "$RG_NAME" || -z "$SA_NAME" || -z "$CONTAINER_NAME" ]]; then
-    echo "Error: Missing required parameters"
-    echo "Usage: $0 <resource-group> <storage-account> <container> [location]"
-    exit 1
-fi
-
-# Check Azure CLI authentication
-if ! az account show >/dev/null 2>&1; then
-    echo "Error: Azure CLI not authenticated. Run 'az login' first."
-    exit 1
-fi
-
-echo "Setting up Terraform backend infrastructure..."
-echo "Resource Group: $RG_NAME"
-echo "Storage Account: $SA_NAME"
-echo "Container: $CONTAINER_NAME"
-echo "Location: $LOCATION"
-
 # Create Resource Group if not exists
 if ! az group show -n "$RG_NAME" >/dev/null 2>&1; then
-    echo "Creating Resource Group: $RG_NAME"
-    az group create \
-        -n "$RG_NAME" \
-        -l "$LOCATION" \
-        --tags "purpose=terraform-state" "environment=shared" >/dev/null
-else
-    echo "Resource Group '$RG_NAME' already exists"
+  echo "Creating Resource Group $RG_NAME"
+  az group create -n "$RG_NAME" -l "$LOCATION" >/dev/null
 fi
 
-# Create Storage Account if not exists (with best practices)
-if ! az storage account show -n "$SA_NAME" -g "$RG_NAME" >/dev/null 2>&1; then
-    echo "Creating Storage Account: $SA_NAME"
-    az storage account create \
-        -n "$SA_NAME" \
-        -g "$RG_NAME" \
-        -l "$LOCATION" \
-        --sku Standard_RAGRS \
-        --kind StorageV2 \
-        --min-tls-version TLS1_2 \
-        --allow-blob-public-access false \
-        --enable-hierarchical-namespace false \
-        --default-action Allow \
-        --access-tier Hot \
-        --tags "purpose=terraform-state" "environment=shared" >/dev/null
+# Find Storage Account in any resource group
+EXISTING_RG=$(az storage account list --query "[?name=='$SA_NAME'].resourceGroup" -o tsv 2>/dev/null)
+
+if [ -n "$EXISTING_RG" ]; then
+  echo "Storage Account $SA_NAME found in resource group: $EXISTING_RG"
+  if [ "$EXISTING_RG" != "$RG_NAME" ]; then
+    echo "WARNING: Storage account exists in different resource group ($EXISTING_RG) than expected ($RG_NAME)"
+    echo "Using existing resource group: $EXISTING_RG"
+    RG_NAME="$EXISTING_RG"
+  fi
 else
-    echo "Storage Account '$SA_NAME' already exists"
+  echo "Storage Account $SA_NAME not found, attempting to create in resource group $RG_NAME..."
+  if az storage account create -n "$SA_NAME" -g "$RG_NAME" -l "$LOCATION" \
+    --sku Standard_LRS --min-tls-version TLS1_2 --allow-blob-public-access false >/dev/null 2>&1; then
+    echo "Successfully created Storage Account $SA_NAME"
+  else
+    echo "Failed to create Storage Account $SA_NAME - name may be globally taken"
+    exit 1
+  fi
 fi
 
 # Get Account Key
@@ -66,19 +40,6 @@ ACCOUNT_KEY=$(az storage account keys list -n "$SA_NAME" -g "$RG_NAME" --query '
 if ! az storage container show -n "$CONTAINER_NAME" --account-name "$SA_NAME" --account-key "$ACCOUNT_KEY" >/dev/null 2>&1; then
   echo "Creating Container $CONTAINER_NAME"
   az storage container create -n "$CONTAINER_NAME" --account-name "$SA_NAME" --account-key "$ACCOUNT_KEY" >/dev/null
-else
-  echo "Container '$CONTAINER_NAME' already exists"
 fi
 
 echo "Backend ready: rg=$RG_NAME sa=$SA_NAME container=$CONTAINER_NAME"
-    --account-name "$SA_NAME" \
-    --account-key "$ACCOUNT_KEY" \
-    --query "name" -o tsv >/dev/null
-
-echo "✅ Terraform backend setup completed successfully!"
-echo "Backend details:"
-echo "  Resource Group: $RG_NAME"
-echo "  Storage Account: $SA_NAME"
-echo "  Container: $CONTAINER_NAME"
-echo "  Location: $LOCATION"
-echo "  State file path: aks/<environment>.tfstate"
