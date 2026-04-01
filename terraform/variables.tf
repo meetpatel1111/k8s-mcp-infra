@@ -78,8 +78,8 @@ variable "system_node_min_count" {
   default     = 1
   
   validation {
-    condition     = var.system_node_min_count >= 1 && var.system_node_min_count <= var.system_node_max_count
-    error_message = "Minimum node count must be between 1 and maximum node count."
+    condition     = var.system_node_min_count >= 1 && var.system_node_min_count <= 5
+    error_message = "Minimum node count must be between 1 and 5."
   }
 }
 
@@ -89,8 +89,8 @@ variable "system_node_max_count" {
   default     = 3
   
   validation {
-    condition     = var.system_node_max_count >= var.system_node_min_count && var.system_node_max_count <= 10
-    error_message = "Maximum node count must be between minimum node count and 10."
+    condition     = var.system_node_max_count >= 1 && var.system_node_max_count <= 10
+    error_message = "Maximum node count must be between 1 and 10."
   }
 }
 
