@@ -662,10 +662,11 @@ jobs:
       - name: Deploy MCP Server to Kubernetes
         run: |
           echo "Deploying MCP Server..."
-          echo "MCP_IMAGE is: $MCP_IMAGE"
+          echo "DEBUG MCP_IMAGE is: $MCP_IMAGE"
           
-          # Export MCP_IMAGE for envsubst
+          # Export MCP_IMAGE for envsubst (CRITICAL - envsubst only reads exported vars)
           export MCP_IMAGE=$MCP_IMAGE
+          echo "DEBUG After export MCP_IMAGE is: $MCP_IMAGE"
           
           # Update deployment with correct image (NEVER overwrite same file)
           envsubst '${MCP_IMAGE}' < k8s/mcp-server/deployment.yaml > k8s/mcp-server/deployment-final.yaml
@@ -677,14 +678,15 @@ jobs:
 
       - name: Create MCP Server Ingress
         run: |
-          # Get external IP for ingress
-          EXTERNAL_IP=$(kubectl get service -l app=nginx-ingress-controller -o jsonpath='{.items[0].status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "")
-          if [ -z "$EXTERNAL_IP" ]; then
-            EXTERNAL_IP=$(kubectl get service -l app=nginx-ingress-controller -o jsonpath='{.items[0].status.loadBalancer.ingress[0].hostname}' 2>/dev/null || echo "")
-          fi
+          # Get external IP for ingress (FIXED: use correct AKS ingress selector)
+          EXTERNAL_IP=$(kubectl -n ingress-nginx get svc ingress-nginx-controller \
+            -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "")
           
-          # Export EXTERNAL_IP for envsubst
+          echo "DEBUG EXTERNAL_IP is: $EXTERNAL_IP"
+          
+          # Export EXTERNAL_IP for envsubst (CRITICAL - envsubst only reads exported vars)
           export EXTERNAL_IP=$EXTERNAL_IP
+          echo "DEBUG After export EXTERNAL_IP is: $EXTERNAL_IP"
           
           # Use existing ingress configuration with envsubst (NEVER overwrite same file)
           envsubst '${EXTERNAL_IP}' < k8s/mcp-server/ingress.yaml > k8s/mcp-server/ingress-final.yaml
@@ -730,8 +732,9 @@ jobs:
           # Check metrics
           kubectl get servicemonitors -A || echo "No ServiceMonitors found"
           
-          # Get external IP for access testing
-          EXTERNAL_IP=$(kubectl -n ingress-nginx get svc ingress-nginx-controller -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "ingress LB:           $EXTERNAL_IP")
+          # Get external IP for access testing (FIXED: use correct AKS ingress selector)
+          EXTERNAL_IP=$(kubectl -n ingress-nginx get svc ingress-nginx-controller \
+            -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "ingress LB:           $EXTERNAL_IP")
           echo "App URL:             http://app.${EXTERNAL_IP}.nip.io/"
           echo "K8s MCP URL:         http://k8s-mcp.${EXTERNAL_IP}.nip.io/"
             
