@@ -698,8 +698,8 @@ jobs:
           echo "DEBUG MCP_IMAGE is: $MCP_IMAGE"
           env | grep MCP_IMAGE
           
-          # Update deployment with correct image (NEVER overwrite same file)
-          envsubst '${MCP_IMAGE}' < k8s/mcp-server/deployment.yaml > k8s/mcp-server/deployment-final.yaml
+          # Update deployment with correct image (proven pattern from main deployment)
+          cp k8s/mcp-server/deployment.yaml k8s/mcp-server/temp.yaml && envsubst < k8s/mcp-server/temp.yaml > k8s/mcp-server/deployment-final.yaml && rm k8s/mcp-server/temp.yaml
           
           # Deploy MCP Server using existing k8s-mcp-server configuration
           kubectl apply -f k8s/mcp-server/rbac.yaml
@@ -756,8 +756,8 @@ jobs:
             exit 1
           fi
           
-          # Use existing ingress configuration with envsubst (NEVER overwrite same file)
-          envsubst '${EXTERNAL_IP}' < k8s/mcp-server/ingress.yaml > k8s/mcp-server/ingress-final.yaml
+          # Use existing ingress configuration with envsubst (proven pattern from main deployment)
+          cp k8s/mcp-server/ingress.yaml k8s/mcp-server/temp.yaml && envsubst < k8s/mcp-server/temp.yaml > k8s/mcp-server/ingress-final.yaml && rm k8s/mcp-server/temp.yaml
           
           # Verify substitution worked
           if grep -q "\${EXTERNAL_IP}" k8s/mcp-server/ingress-final.yaml; then
