@@ -502,6 +502,7 @@ jobs:
           echo "PROVIDER=${PROVIDER}" >> $GITHUB_ENV
           
           # Apply MCP ingress with environment substitution
+          cp k8s/mcp-ingress.yaml k8s/temp.yaml && envsubst < k8s/temp.yaml > k8s/mcp-ingress.yaml && rm k8s/temp.yaml && kubectl apply -f k8s/mcp-ingress.yaml
           envsubst < k8s/mcp-ingress.yaml | kubectl apply -f -
 
       - name: Verify Deployments
@@ -563,7 +564,7 @@ jobs:
 
   verify-deployment:
     if: ${{ github.event.inputs.run_application_deployment == 'true' }}
-    needs: weather-app-deploy
+    needs: [weather-app-deploy, mcp-server-deploy]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repo
