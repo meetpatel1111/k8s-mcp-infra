@@ -69,6 +69,9 @@ resource "azurerm_kubernetes_cluster" "aks" {
     dns_service_ip = "10.96.0.10"
   }
 
+  # OIDC configuration
+  oidc_issuer_enabled = true
+
   tags = {
     environment = var.environment
     project     = "weather-mcp"
