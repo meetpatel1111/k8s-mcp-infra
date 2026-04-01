@@ -11,13 +11,13 @@ dns_prefix          = "aks-weather-dev"
 kubernetes_version = "1.35.0"
 
 # Node pool configuration for development
-system_node_count     = 2
+system_node_count     = 1
 system_node_min_count = 1
-system_node_max_count = 3
+system_node_max_count = 2
 system_node_vm_size   = "Standard_D2s_v3"
 
 # User node pool for application workloads (no critical addons taint)
-user_node_count   = 2
+user_node_count   = 1
 user_node_vm_size = "Standard_D2s_v3"
 
 # Replica counts
