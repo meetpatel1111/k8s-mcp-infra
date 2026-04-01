@@ -273,14 +273,7 @@ jobs:
           if [ -n "${{ github.event.inputs.app_dockerfile }}" ]; then
             echo "${{ github.event.inputs.app_dockerfile }}" > Dockerfile
           elif [ ! -f "Dockerfile" ]; then
-            printf 'FROM nginx:alpine\n\
-COPY index.html  /usr/share/nginx/html/\n\
-COPY script.js   /usr/share/nginx/html/\n\
-COPY styles.css  /usr/share/nginx/html/\n\
-RUN echo '"'"'server { listen 80; root /usr/share/nginx/html; index index.html; location / { try_files $uri $uri/ /index.html; } }'"'"' \
-  > /etc/nginx/conf.d/default.conf\n\
-EXPOSE 80\n\
-CMD ["nginx", "-g", "daemon off;"]\n' > Dockerfile
+            printf 'FROM nginx:alpine\nCOPY index.html  /usr/share/nginx/html/\nCOPY script.js   /usr/share/nginx/html/\nCOPY styles.css  /usr/share/nginx/html/\nRUN echo '"'"'server { listen 80; root /usr/share/nginx/html; index index.html; location / { try_files $uri $uri/ /index.html; } }'"'"'  > /etc/nginx/conf.d/default.conf\nEXPOSE 80\nCMD ["nginx", "-g", "daemon off;"]\n' > Dockerfile
           fi
 
           docker build --no-cache -t "$APP_IMAGE" .
