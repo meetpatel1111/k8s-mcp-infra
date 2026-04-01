@@ -22,9 +22,9 @@ on:
         type: choice
         options: [openai, google]
       mcp_repo_url:
-        description: 'MCP Repository URL (e.g., https://github.com/k8sgpt-ai/k8sgpt)'
+        description: 'MCP Repository URL (e.g., https://github.com/vikas0105/MCP_Servers)'
         required: true
-        default: 'https://github.com/k8sgpt-ai/k8sgpt'
+        default: 'https://github.com/vikas0105/MCP_Servers'
         type: string
       run_security_scan:
         description: 'Run security scans only?'
@@ -292,7 +292,7 @@ jobs:
           echo "MCP_SERVERS_IMAGE=$MCP_SERVERS_IMAGE" >> $GITHUB_ENV
           
           # Clone MCP Servers repository with correct branch
-          git clone https://github.com/vikas0105/MCP_Servers.git
+          git clone ${{ github.event.inputs.mcp_repo_url }}
           cd MCP_Servers
           git checkout codex/build-mcp-server-for-kubernetes
           
@@ -596,7 +596,7 @@ jobs:
           echo "MCP_IMAGE=$MCP_IMAGE" >> $GITHUB_ENV
           
           # Clone MCP Servers repository with correct branch
-          git clone https://github.com/vikas0105/MCP_Servers.git
+          git clone ${{ github.event.inputs.mcp_repo_url }}
           cd MCP_Servers
           git checkout codex/build-mcp-server-for-kubernetes
           
@@ -662,7 +662,7 @@ jobs:
           echo "📊 Access the Web UI at the URL above"
           echo ""
           echo "🔧 To run the MCP server locally:"
-          echo "   git clone https://github.com/vikas0105/MCP_Servers.git"
+          echo "   git clone ${{ github.event.inputs.mcp_repo_url }}"
           echo "   cd MCP_Servers"
           echo "   git checkout codex/build-mcp-server-for-kubernetes"
           echo "   python -m venv .venv && source .venv/bin/activate"
