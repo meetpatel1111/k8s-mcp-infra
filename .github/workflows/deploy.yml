@@ -477,7 +477,7 @@ CMD ["nginx", "-g", "daemon off;"]\n' > Dockerfile
         if: ${{ github.event.inputs.run_security_scan == 'true' }}
         uses: aquasecurity/trivy-action@0.35.0
         with:
-          image-ref: ${{ env.MCP_SERVERS_IMAGE }}
+          image-ref: ${{ env.MCP_IMAGE }}
           format: table
           exit-code: '0'
           severity: 'CRITICAL,HIGH'
@@ -551,10 +551,8 @@ CMD ["nginx", "-g", "daemon off;"]\n' > Dockerfile
           echo ""
           echo "🎉 Deployment complete!"
           echo ""
-          echo "🌦️  Weather App:   http://weather.${{ env.EXTERNAL_IP }}.nip.io/"
+          echo "🌦️  Weather App:   http://app.${{ env.EXTERNAL_IP }}.nip.io/"
           echo "🔧  MCP Server:   http://k8s-mcp.${{ env.EXTERNAL_IP }}.nip.io/"
-          echo "📊  Prometheus:   http://prometheus.${{ env.EXTERNAL_IP }}.nip.io/"
-          echo "📈  Grafana:      http://grafana.${{ env.EXTERNAL_IP }}.nip.io/"
           echo ""
           echo "=== All Ingresses ==="
           kubectl get ingress -A
@@ -571,8 +569,8 @@ CMD ["nginx", "-g", "daemon off;"]\n' > Dockerfile
       - name: Test MCP Service health (port-forward)
         run: |
           PROVIDER="${{ github.event.inputs.mcp_provider }}"
-          SERVICE_NAME=$([ "$PROVIDER" = "openai" ] && echo "openai-mcp-service" || echo "google-mcp-service")
-          LOCAL_PORT=$([ "$PROVIDER" = "openai" ] && echo "8080" || echo "8081")
+          SERVICE_NAME="k8s-mcp-web"
+          LOCAL_PORT="8000"
 
           echo "Testing MCP service health via port-forward ($SERVICE_NAME)..."
           kubectl port-forward service/$SERVICE_NAME ${LOCAL_PORT}:8080 &
