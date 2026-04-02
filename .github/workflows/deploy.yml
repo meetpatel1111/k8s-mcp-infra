@@ -739,6 +739,10 @@ jobs:
           kubectl apply -f k8s/mcp-server/rbac.yaml
           kubectl apply -f k8s/mcp-server/deployment-final.yaml
           kubectl apply -f k8s/mcp-server/service.yaml
+          
+          # Force rolling restart to ensure fresh pods even with same image
+          echo "🔄 Forcing rolling restart for fresh deployment..."
+          kubectl -n sre-copilot rollout restart deployment/k8s-mcp-web
 
       - name: Create MCP Server Ingress
         run: |
@@ -865,9 +869,6 @@ jobs:
           if [ -n "$EXTERNAL_IP" ]; then
             echo "App URL:             http://app.${EXTERNAL_IP}.nip.io/"
             echo "K8s MCP URL:         http://k8s-mcp.${EXTERNAL_IP}.nip.io/"
-            
-            echo "=== Health Check Results ==="
-            curl -s "http://app.${EXTERNAL_IP}.nip.io/health" | jq .status || echo "Health check failed"
           else
             echo "External IP not yet assigned. Please check ingress status."
           fi
