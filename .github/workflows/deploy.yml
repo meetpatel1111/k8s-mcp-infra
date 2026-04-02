@@ -514,8 +514,9 @@ jobs:
 
           # Render & apply application manifests with envsubst
           cp k8s/app-deployment.yaml k8s/temp.yaml && envsubst < k8s/temp.yaml > k8s/app-deployment.yaml && rm k8s/temp.yaml && kubectl apply -f k8s/app-deployment.yaml
-          cp k8s/main-ingress.yaml k8s/temp.yaml && envsubst < k8s/temp.yaml > k8s/main-ingress.yaml && rm k8s/temp.yaml && kubectl apply -f k8s/main-ingress.yaml
-
+          envsubst < k8s/main-ingress.yaml > k8s/main-ingress-final.yaml
+          kubectl apply -f k8s/main-ingress-final.yaml
+          
           # Ensure core deployments roll out
           kubectl -n default rollout status deployment/app --timeout=120s || echo "app rollout status timed out or deployment not found (continuing)"
 
@@ -531,17 +532,6 @@ jobs:
             echo "Attempt $i/30 - LB IP not yet assigned. Sleeping 10s..."
             sleep 10
           done
-
-      - name: Create Ingress for Weather App and MCP Services
-        run: |
-          EXTERNAL_IP=$(kubectl -n ingress-nginx get svc ingress-nginx-controller -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-          PROVIDER="${{ github.event.inputs.mcp_provider }}"
-          echo "EXTERNAL_IP=${EXTERNAL_IP}" >> $GITHUB_ENV
-          echo "PROVIDER=${PROVIDER}" >> $GITHUB_ENV
-          
-          # Apply MCP ingress with environment substitution
-          cp k8s/mcp-server/ingress.yaml k8s/temp.yaml && envsubst < k8s/temp.yaml > k8s/mcp-server/ingress.yaml && rm k8s/temp.yaml && kubectl apply -f k8s/mcp-server/ingress.yaml
-          envsubst < k8s/mcp-server/ingress.yaml | kubectl apply -f -
 
       - name: Verify Deployments
         run: |
@@ -580,7 +570,7 @@ jobs:
           curl -f "http://app.${EXTERNAL_IP}.nip.io/" || exit 1
 
   verify-deployment:
-    if: ${{ github.event.inputs.run_app_deploy == 'true' || github.event.inputs.run_mcp_deploy == 'true' }}
+    if: always() && (needs.weather-app-deploy.result == 'success' || needs.mcp-server-deploy.result == 'success' || (github.event.inputs.run_app_deploy == 'true' && needs.weather-app-deploy.result == 'skipped') || (github.event.inputs.run_mcp_deploy == 'true' && needs.mcp-server-deploy.result == 'skipped'))
     needs: [weather-app-deploy, mcp-server-deploy]
     runs-on: ubuntu-latest
     steps:
@@ -752,8 +742,8 @@ jobs:
 
       - name: Create MCP Server Ingress
         run: |
-          # Wait for the ingress-nginx Service LoadBalancer IP (or hostname) - using same pattern as main deployment
           echo "Waiting for ingress-nginx controller LoadBalancer IP for MCP server..."
+
           LB_SVC_NS=ingress-nginx
           LB_SVC_NAME=ingress-nginx-controller
           MAX_ATTEMPTS=20
@@ -761,8 +751,8 @@ jobs:
           EXTERNAL_IP=""
 
           for i in $(seq 1 $MAX_ATTEMPTS); do
-            # first try ip, then hostname (some Azure setups use ip, some use hostname)
             EXTERNAL_IP=$(kubectl -n $LB_SVC_NS get svc $LB_SVC_NAME -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)
+
             if [ -z "$EXTERNAL_IP" ]; then
               EXTERNAL_IP=$(kubectl -n $LB_SVC_NS get svc $LB_SVC_NAME -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || true)
             fi
@@ -772,54 +762,40 @@ jobs:
               break
             fi
 
-            echo "⏳ Attempt $i/$MAX_ATTEMPTS - LB IP not yet assigned. Sleeping ${SLEEP_SECS}s..."
+            echo "⏳ Attempt $i/$MAX_ATTEMPTS - LB not ready. Sleeping ${SLEEP_SECS}s..."
             sleep $SLEEP_SECS
           done
 
           if [ -z "$EXTERNAL_IP" ]; then
-            echo "❌ ERROR: ingress controller LoadBalancer IP/hostname was not assigned within timeout."
-            echo "Check: kubectl -n $LB_SVC_NS get svc $LB_SVC_NAME -o wide"
+            echo "❌ ERROR: ingress controller LoadBalancer IP/hostname not assigned"
+            kubectl -n $LB_SVC_NS get svc $LB_SVC_NAME -o wide
             exit 1
           fi
 
-          # Export for current step (envsubst) and future steps
-          export EXTERNAL_IP=$EXTERNAL_IP
-          echo "EXTERNAL_IP=$EXTERNAL_IP" >> $GITHUB_ENV
-          
-          # Debug verification
-          echo "DEBUG EXTERNAL_IP for MCP ingress: $EXTERNAL_IP"
-          env | grep EXTERNAL_IP
-          
-          # Verify EXTERNAL_IP is not empty before proceeding
-          if [ -z "$EXTERNAL_IP" ]; then
-            echo "❌ CRITICAL: EXTERNAL_IP is still empty after retry attempts!"
-            echo "🔍 Debugging ingress controller status:"
-            kubectl -n ingress-nginx get svc ingress-nginx-controller -o wide
-            echo "🔍 All services in ingress-nginx namespace:"
-            kubectl -n ingress-nginx get svc -o wide
+          # Convert to nip.io format
+          EXTERNAL_IP_DASHED=$(echo $EXTERNAL_IP | sed 's/\./-/g')
+
+          export EXTERNAL_IP=$EXTERNAL_IP_DASHED
+          echo "EXTERNAL_IP=$EXTERNAL_IP_DASHED" >> $GITHUB_ENV
+
+          echo "✅ Using nip.io compatible IP: $EXTERNAL_IP"
+
+          # Generate final ingress (DO NOT overwrite original)
+          envsubst < k8s/mcp-server/ingress.yaml > k8s/mcp-server/ingress-final.yaml
+
+          echo "=== Generated MCP ingress ==="
+          cat k8s/mcp-server/ingress-final.yaml
+
+          # Validate substitution
+          if grep -q "\${EXTERNAL_IP}" k8s/mcp-server/ingress-final.yaml; then
+            echo "❌ ERROR: envsubst failed"
             exit 1
           fi
-          
-          # Use existing ingress configuration with envsubst (proven pattern from main deployment)
-          cp k8s/mcp-server/ingress.yaml k8s/mcp-server/temp.yaml && envsubst < k8s/mcp-server/temp.yaml > k8s/mcp-server/ingress.yaml && rm k8s/mcp-server/temp.yaml
-          
-          # Verify substitution worked
-          if grep -q "\${EXTERNAL_IP}" k8s/mcp-server/ingress.yaml; then
-            echo "❌ envsubst failed - still contains \${EXTERNAL_IP}"
-            echo "🔧 Trying sed fallback..."
-            sed -i "s/\${EXTERNAL_IP}/$EXTERNAL_IP/g" k8s/mcp-server/ingress.yaml
-          fi
-          
-          echo "Generated MCP ingress file:"
-          cat k8s/mcp-server/ingress.yaml
-          
-          # Final verification before applying
-          if grep -q "\${EXTERNAL_IP}" k8s/mcp-server/ingress.yaml; then
-            echo "❌ CRITICAL: Ingress still contains unsubstituted variables!"
-            exit 1
-          fi
-          
-          kubectl apply -f k8s/mcp-server/ingress.yaml
+
+          # Apply ONLY final file (single source of truth)
+          kubectl apply -f k8s/mcp-server/ingress-final.yaml
+
+          echo "✅ MCP ingress applied successfully"
 
       - name: Wait for MCP Server deployment
         run: |
@@ -886,39 +862,7 @@ jobs:
           # Check metrics
           kubectl get servicemonitors -A || echo "No ServiceMonitors found"
           
-          # Get external IP for access testing and convert to dashed format
-          EXTERNAL_IP=$(kubectl -n ingress-nginx get svc ingress-nginx-controller \
-            -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "")
-          EXTERNAL_IP=$(echo $EXTERNAL_IP | sed 's/\./-/g')
-          
-          # Export for current step
-          export EXTERNAL_IP=$EXTERNAL_IP
-          
-          # Save for next steps
-          echo "EXTERNAL_IP=$EXTERNAL_IP" >> $GITHUB_ENV
-          
-          # Debug verification
-          echo "DEBUG EXTERNAL_IP=$EXTERNAL_IP"
-          env | grep EXTERNAL_IP
-          
-          echo "App URL:             http://app.${EXTERNAL_IP}.nip.io/"
-          echo "K8s MCP URL:         http://k8s-mcp.${EXTERNAL_IP}.nip.io/"
-            
-          echo "=== Health Check Results ==="
           if [ -n "$EXTERNAL_IP" ]; then
-            # Convert to dashed format for nip.io
-            EXTERNAL_IP=$(echo $EXTERNAL_IP | sed 's/\./-/g')
-            
-            # Export for current step
-            export EXTERNAL_IP=$EXTERNAL_IP
-            
-            # Save for next steps
-            echo "EXTERNAL_IP=$EXTERNAL_IP" >> $GITHUB_ENV
-            
-            # Debug verification
-            echo "DEBUG EXTERNAL_IP=$EXTERNAL_IP"
-            env | grep EXTERNAL_IP
-            
             echo "App URL:             http://app.${EXTERNAL_IP}.nip.io/"
             echo "K8s MCP URL:         http://k8s-mcp.${EXTERNAL_IP}.nip.io/"
             
