@@ -40,3 +40,25 @@ spec:
                 name: app-service
                 port:
                   number: 80
+    # Vote - Azure Voting App (front + redis)
+    - host: vote.${EXTERNAL_IP}.nip.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: vote-front-service
+                port:
+                  number: 80
+    # Game - 2048 Demo Game
+    - host: game.${EXTERNAL_IP}.nip.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: game-service
+                port:
+                  number: 80

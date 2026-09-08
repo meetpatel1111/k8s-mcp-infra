@@ -1,31 +1,35 @@
-# AKS Weather MCP Project
+# AKS Multi-App Project
 
-This project deploys a weather application on Azure Kubernetes Service (AKS) with MCP (Model Context Protocol) integration using GitHub Actions for CI/CD.
+This project deploys three working applications on Azure Kubernetes Service (AKS) using GitHub Actions for CI/CD.
+
+## Applications
+
+| App | Description | Image | URL pattern |
+|-----|-------------|-------|-------------|
+| `app` | WeatherPulse static weather site (built from `app_repo_url`) | Built + pushed to ACR | `http://app.<IP>.nip.io` |
+| `vote` | Microsoft Azure Voting App (front + Redis back) | `mcr.microsoft.com/azuredocs/azure-vote-front:v1` / `mcr.microsoft.com/oss/bitnami/redis:6.0.8` | `http://vote.<IP>.nip.io` |
+| `game` | 2048 demo game | `alexwhen/docker-2048:latest` | `http://game.<IP>.nip.io` |
 
 ## Project Structure
 
 ```
-├── app/                 # Weather application
-│   ├── index.js        # Main Node.js application
-│   ├── package.json    # Dependencies and scripts
-│   ├── Dockerfile      # Container configuration
-│   ├── .env.example    # Environment variables template
-│   └── tests/          # Test suite
 ├── terraform/          # Azure infrastructure as code
 │   ├── main.tf         # Main Azure resources (AKS, ACR, RG)
 │   ├── provider.tf     # Azure provider configuration
-│   ├── variables.tf    # Input variables
+│   ├── variables.tf    # Input variables (incl. per-app replica counts)
 │   ├── outputs.tf      # Output values
 │   ├── backend.tf      # Terraform backend configuration
 │   ├── dev.tfvars      # Development environment variables
 │   ├── test.tfvars     # Test environment variables
 │   └── bootstrap/      # Backend setup scripts
 ├── k8s/                # Kubernetes manifests
-│   ├── weather-deployment.yaml
-│   ├── weather-service.yaml
-│   └── weather-ingress.yaml
+│   ├── app-deployment.yaml   # Weather app Deployment + Service + HPA
+│   ├── vote-deployment.yaml  # Voting app (front + redis) + Services + HPA
+│   ├── game-deployment.yaml  # 2048 game Deployment + Service + HPA
+│   └── main-ingress.yaml     # Shared nginx ingress (app/vote/game hosts)
 └── .github/workflows/  # GitHub Actions workflows
-    └── deploy.yml      # Parameter-based deployment workflow
+    ├── deploy.yml      # Parameter-based deployment workflow
+    └── delete-k8s.yml  # App deletion workflow
 ```
 
 ## Prerequisites
@@ -38,21 +42,22 @@ This project deploys a weather application on Azure Kubernetes Service (AKS) wit
 
 ## GitHub Actions Deployment
 
-This project uses a parameter-based GitHub Actions workflow for deployment. Navigate to **Actions** → **One-Click Weather MCP Deployment (Azure)** in your GitHub repository to trigger deployments.
+Navigate to **Actions** → **One-Click App Deployment (Azure)** in your GitHub repository to trigger deployments.
 
 ### Deployment Parameters
 
 - **Environment**: Choose between `dev` or `test`
 - **Terraform Action**: Select `apply`, `destroy`, or `refresh`
+- **App Repository URL / Branch / Dockerfile**: Source for the weather `app` image
 - **Run Security Scan**: Enable/disable security scanning
 - **Run Terraform**: Enable/disable infrastructure deployment
-- **Run Application Deployment**: Enable/disable application deployment
+- **Run Application Deployment**: Enable/disable application deployment (deploys all three apps: weather, vote, game)
 
 ### Deployment Steps
 
 1. **Security Scan** (optional): Runs tfsec and Trivy security scans
 2. **Terraform Operations**: Deploys/destroys/refreshes Azure infrastructure
-3. **Application Deployment**: Builds and deploys the weather application to AKS
+3. **Application Deployment**: Builds the weather app image, then deploys all three apps + shared ingress to AKS
 
 ## Local Development
 
@@ -109,14 +114,17 @@ Key variables to configure in your `.tfvars` files:
 - `location`: Azure region (e.g., "East US")
 - `cluster_name`: AKS cluster name
 - `dns_prefix`: DNS prefix for the AKS cluster
+- `weather_app_replicas` / `weather_app_hpa_max`: Weather app scaling
+- `vote_app_replicas` / `vote_app_hpa_max`: Voting app scaling
+- `game_app_replicas` / `game_app_hpa_max`: 2048 game scaling
 
 ## Required GitHub Secrets
 
 Add these secrets to your GitHub repository:
 
 - `AZURE_CREDENTIALS`: JSON object with Azure service principal credentials
-- `OPENAI_API_KEY`: OpenAI API key (if using AI features)
-- `GEMINI_API_KEY`: Google Gemini API key (if using AI features)
+- `OPENAI_API_KEY`: OpenAI API key (stored in `weather-app-secret`)
+- `GEMINI_API_KEY`: Google Gemini API key (stored in `weather-app-secret`)
 
 Example `AZURE_CREDENTIALS` format:
 ```json
@@ -138,33 +146,39 @@ After deployment:
 
 ```bash
 # View pod logs
-kubectl logs -f deployment/weather-app
+kubectl logs -f deployment/app
+kubectl logs -f deployment/vote-front
+kubectl logs -f deployment/game
 
 # Check pod status
-kubectl get pods -l app=weather
+kubectl get pods -l app=app
+kubectl get pods -l app=vote-front
+kubectl get pods -l app=game
 
-# View service endpoints
-kubectl get svc weather-app
+# View services and ingress
+kubectl get svc app-service vote-front-service game-service
+kubectl get ingress
 ```
 
-## API Endpoints
+## Access URLs
 
-Once deployed, the weather application provides:
+Once deployed (via `nip.io` + ingress-nginx LoadBalancer IP):
 
-- `GET /health` - Health check endpoint
-- `GET /weather/current/:city` - Current weather for a city
-- `GET /weather/forecast/:city` - 5-day weather forecast
-- `POST /mcp/weather` - MCP endpoint for weather data
+- Weather app: `http://app.<DASHED-IP>.nip.io`
+- Voting app: `http://vote.<DASHED-IP>.nip.io`
+- 2048 game: `http://game.<DASHED-IP>.nip.io`
 
 ## Cleanup
 
 To destroy all resources:
 
-1. Go to GitHub Actions → **One-Click Weather MCP Deployment (Azure)**
+1. Go to GitHub Actions → **One-Click App Deployment (Azure)**
 2. Select your environment
 3. Set **Terraform Action** to `destroy`
 4. Enable **Run Terraform**
 5. Click **Run workflow**
+
+To delete only the Kubernetes apps (keep infrastructure), use the **Delete Kubernetes Applications (AKS)** workflow with `apps_to_delete: app,vote,game,ingress`.
 
 ## Contributing
 

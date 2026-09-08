@@ -1,4 +1,4 @@
-# Terraform variables for AKS Weather MCP Project
+# Terraform variables for AKS Multi-App Project
 # Follows naming conventions and includes comprehensive descriptions
 
 variable "location" {
@@ -109,4 +109,40 @@ variable "tags" {
   description = "Additional tags to apply to all resources"
   type        = map(string)
   default     = {}
+}
+
+variable "weather_app_replicas" {
+  description = "Desired replicas for the weather app deployment"
+  type        = number
+  default     = 2
+}
+
+variable "weather_app_hpa_max" {
+  description = "Max replicas for the weather app HPA"
+  type        = number
+  default     = 5
+}
+
+variable "vote_app_replicas" {
+  description = "Desired replicas for the vote-front deployment"
+  type        = number
+  default     = 2
+}
+
+variable "vote_app_hpa_max" {
+  description = "Max replicas for the vote-front HPA"
+  type        = number
+  default     = 5
+}
+
+variable "game_app_replicas" {
+  description = "Desired replicas for the 2048 game deployment"
+  type        = number
+  default     = 1
+}
+
+variable "game_app_hpa_max" {
+  description = "Max replicas for the 2048 game HPA"
+  type        = number
+  default     = 3
 }

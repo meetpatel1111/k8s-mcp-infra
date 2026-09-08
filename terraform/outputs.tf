@@ -1,4 +1,4 @@
-# Terraform outputs for AKS Weather MCP Project
+# Terraform outputs for AKS Multi-App Project
 # Provides essential information for CI/CD and external systems
 
 output "resource_group_name" {

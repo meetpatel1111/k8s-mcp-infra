@@ -15,9 +15,9 @@ on:
         default: true
         type: boolean
       apps_to_delete:
-        description: 'Comma-separated list of apps to delete (weather-app, ingress, monitoring)'
+        description: 'Comma-separated list of apps to delete (app, vote, game, ingress)'
         required: false
-        default: 'weather-app,ingress'
+        default: 'app,vote,game,ingress'
       confirm:
         description: 'Confirm deletion (must be true to actually delete)'
         required: true
@@ -103,11 +103,14 @@ jobs:
           DRY_RUN=${{ github.event.inputs.dry_run }}
           for APP in $(echo "$APPS_LIST" | tr "," "\n"); do
             case "$APP" in
-              weather-app)         YAML_FILE="k8s/weather-deployment.yaml" ;;
-              weather-service)     YAML_FILE="k8s/weather-service.yaml" ;;
-              ingress)              YAML_FILE="k8s/weather-ingress.yaml" ;;
-              monitoring)           YAML_FILE="k8s/monitoring.yaml" ;;
-              *)                    YAML_FILE="k8s/${APP}.yaml" ;;
+              app)                 YAML_FILE="k8s/app-deployment.yaml" ;;
+              vote)                YAML_FILE="k8s/vote-deployment.yaml" ;;
+              game)                YAML_FILE="k8s/game-deployment.yaml" ;;
+              ingress)             YAML_FILE="k8s/main-ingress.yaml" ;;
+              weather-app)         YAML_FILE="k8s/app-deployment.yaml" ;;
+              weather-service)     YAML_FILE="k8s/app-deployment.yaml" ;;
+              monitoring)          YAML_FILE="k8s/monitoring.yaml" ;;
+              *)                   YAML_FILE="k8s/${APP}.yaml" ;;
             esac
 
             if [[ -f "$YAML_FILE" ]]; then
@@ -162,5 +165,5 @@ jobs:
         run: |
           echo "❌ Deletion not confirmed. Set 'confirm' input to true to delete Kubernetes apps."
           echo "🔒 This is a safety measure to prevent accidental deletions."
-          echo "📋 Available apps to delete: weather-app, weather-service, ingress, monitoring"
+          echo "📋 Available apps to delete: app, vote, game, ingress"
           exit 1

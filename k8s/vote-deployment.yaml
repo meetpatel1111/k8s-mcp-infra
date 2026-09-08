@@ -1,0 +1,138 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vote-front
+  namespace: default
+  labels:
+    app: vote-front
+spec:
+  replicas: ${VOTE_REPLICAS_MIN}
+  selector:
+    matchLabels:
+      app: vote-front
+  template:
+    metadata:
+      labels:
+        app: vote-front
+    spec:
+      containers:
+      - name: vote-front
+        image: mcr.microsoft.com/azuredocs/azure-vote-front:v1
+        ports:
+        - containerPort: 80
+        env:
+        - name: REDIS
+          value: "vote-back"
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 3
+          periodSeconds: 5
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vote-front-service
+  namespace: default
+  labels:
+    app: vote-front
+spec:
+  selector:
+    app: vote-front
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: 80
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vote-back
+  namespace: default
+  labels:
+    app: vote-back
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vote-back
+  template:
+    metadata:
+      labels:
+        app: vote-back
+    spec:
+      containers:
+      - name: vote-back
+        image: mcr.microsoft.com/oss/bitnami/redis:6.0.8
+        ports:
+        - containerPort: 6379
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "300m"
+            memory: "256Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vote-back
+  namespace: default
+  labels:
+    app: vote-back
+spec:
+  selector:
+    app: vote-back
+  type: ClusterIP
+  ports:
+    - port: 6379
+      targetPort: 6379
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: vote-front-hpa
+  namespace: default
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: vote-front
+  minReplicas: ${VOTE_REPLICAS_MIN}
+  maxReplicas: ${VOTE_REPLICAS_MAX}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 60
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 30
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 60
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Percent
+          value: 50
+          periodSeconds: 60

@@ -17,12 +17,14 @@ system_node_max_count = 2
 system_node_vm_size   = "Standard_D2s_v3"
 
 # Replica counts
-k8s_mcp_replicas     = 1
 weather_app_replicas = 2
 
 # HPA (Horizontal Pod Autoscaler) settings
-k8s_mcp_hpa_max     = 3
 weather_app_hpa_max = 5
+vote_app_replicas   = 2
+vote_app_hpa_max    = 5
+game_app_replicas   = 1
+game_app_hpa_max    = 3
 
 # Additional tags for development
 tags = {
