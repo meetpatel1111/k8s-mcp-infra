@@ -74,11 +74,11 @@ spec:
           periodSeconds: 10
         resources:
           requests:
-            cpu: "50m"
-            memory: "128Mi"
+            cpu: "20m"
+            memory: "32Mi"
           limits:
-            cpu: "200m"
-            memory: "256Mi"
+            cpu: "50m"
+            memory: "64Mi"
       volumes:
       - name: gitea-db-data
         persistentVolumeClaim:
@@ -158,11 +158,11 @@ spec:
           periodSeconds: 15
         resources:
           requests:
-            cpu: "50m"
-            memory: "64Mi"
+            cpu: "150m"
+            memory: "128Mi"
           limits:
-            cpu: "200m"
-            memory: "100Mi"
+            cpu: "300m"
+            memory: "256Mi"
       volumes:
       - name: gitea-data
         persistentVolumeClaim:

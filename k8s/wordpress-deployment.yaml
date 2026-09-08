@@ -77,10 +77,10 @@ spec:
           periodSeconds: 10
         resources:
           requests:
-            cpu: "100m"
-            memory: "256Mi"
+            cpu: "200m"
+            memory: "512Mi"
           limits:
-            cpu: "400m"
+            cpu: "500m"
             memory: "512Mi"
       volumes:
       - name: mysql-data
@@ -150,10 +150,10 @@ spec:
           periodSeconds: 15
         resources:
           requests:
-            cpu: "100m"
-            memory: "64Mi"
+            cpu: "30m"
+            memory: "32Mi"
           limits:
-            cpu: "350m"
+            cpu: "100m"
             memory: "64Mi"
       volumes:
       - name: wordpress-data
