@@ -55,6 +55,16 @@ on:
         required: false
         default: false
         type: boolean
+      run_httpbin_deploy:
+        description: 'Deploy Httpbin (HTTP testing) app?'
+        required: false
+        default: false
+        type: boolean
+      run_whoami_deploy:
+        description: 'Deploy Whoami (container info) app?'
+        required: false
+        default: false
+        type: boolean
 
 env:
   TF_DIR: terraform
@@ -201,7 +211,7 @@ jobs:
           esac
 
   weather-app-deploy:
-    if: ${{ github.event.inputs.run_weather_deploy == 'true' || github.event.inputs.run_vote_deploy == 'true' || github.event.inputs.run_game_deploy == 'true' }}
+    if: ${{ github.event.inputs.run_weather_deploy == 'true' || github.event.inputs.run_vote_deploy == 'true' || github.event.inputs.run_game_deploy == 'true' || github.event.inputs.run_httpbin_deploy == 'true' || github.event.inputs.run_whoami_deploy == 'true' }}
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -345,6 +355,10 @@ jobs:
           export VOTE_HPA_MAX=$(grep -E '^\s*vote_app_hpa_max\s*=' "$ENVFILE" | awk -F'=' '{print $2}' | xargs || echo "5")
           export GAME_REPLICAS=$(grep -E '^\s*game_app_replicas\s*=' "$ENVFILE" | awk -F'=' '{print $2}' | xargs || echo "1")
           export GAME_HPA_MAX=$(grep -E '^\s*game_app_hpa_max\s*=' "$ENVFILE" | awk -F'=' '{print $2}' | xargs || echo "3")
+          export HTTPBIN_REPLICAS=$(grep -E '^\s*httpbin_app_replicas\s*=' "$ENVFILE" | awk -F'=' '{print $2}' | xargs || echo "1")
+          export HTTPBIN_HPA_MAX=$(grep -E '^\s*httpbin_app_hpa_max\s*=' "$ENVFILE" | awk -F'=' '{print $2}' | xargs || echo "3")
+          export WHOAMI_REPLICAS=$(grep -E '^\s*whoami_app_replicas\s*=' "$ENVFILE" | awk -F'=' '{print $2}' | xargs || echo "1")
+          export WHOAMI_HPA_MAX=$(grep -E '^\s*whoami_app_hpa_max\s*=' "$ENVFILE" | awk -F'=' '{print $2}' | xargs || echo "3")
 
           echo "WEATHER_APP_REPLICAS_MIN=$WEATHER_APP_REPLICAS" >> $GITHUB_ENV
           echo "WEATHER_APP_REPLICAS_MAX=$WEATHER_APP_HPA_MAX" >> $GITHUB_ENV
@@ -352,6 +366,10 @@ jobs:
           echo "VOTE_REPLICAS_MAX=$VOTE_HPA_MAX" >> $GITHUB_ENV
           echo "GAME_REPLICAS_MIN=$GAME_REPLICAS" >> $GITHUB_ENV
           echo "GAME_REPLICAS_MAX=$GAME_HPA_MAX" >> $GITHUB_ENV
+          echo "HTTPBIN_REPLICAS_MIN=$HTTPBIN_REPLICAS" >> $GITHUB_ENV
+          echo "HTTPBIN_REPLICAS_MAX=$HTTPBIN_HPA_MAX" >> $GITHUB_ENV
+          echo "WHOAMI_REPLICAS_MIN=$WHOAMI_REPLICAS" >> $GITHUB_ENV
+          echo "WHOAMI_REPLICAS_MAX=$WHOAMI_HPA_MAX" >> $GITHUB_ENV
 
       - name: Apply Kubernetes Deployments & Services (Azure)
         run: |
@@ -415,6 +433,10 @@ jobs:
           export VOTE_REPLICAS_MAX="${VOTE_REPLICAS_MAX:-5}"
           export GAME_REPLICAS_MIN="${GAME_REPLICAS_MIN:-1}"
           export GAME_REPLICAS_MAX="${GAME_REPLICAS_MAX:-3}"
+          export HTTPBIN_REPLICAS_MIN="${HTTPBIN_REPLICAS_MIN:-1}"
+          export HTTPBIN_REPLICAS_MAX="${HTTPBIN_REPLICAS_MAX:-3}"
+          export WHOAMI_REPLICAS_MIN="${WHOAMI_REPLICAS_MIN:-1}"
+          export WHOAMI_REPLICAS_MAX="${WHOAMI_REPLICAS_MAX:-3}"
 
           # Deploy weather app if selected
           if [ "${{ github.event.inputs.run_weather_deploy }}" == "true" ]; then
@@ -436,6 +458,20 @@ jobs:
             echo "Deploying game app..."
             cp k8s/game-deployment.yaml k8s/temp.yaml && envsubst < k8s/temp.yaml > k8s/game-deployment.yaml && rm k8s/temp.yaml && kubectl apply -f k8s/game-deployment.yaml
             kubectl -n default rollout status deployment/game --timeout=180s || echo "game rollout timed out (continuing)"
+          fi
+
+          # Deploy httpbin app if selected
+          if [ "${{ github.event.inputs.run_httpbin_deploy }}" == "true" ]; then
+            echo "Deploying httpbin app..."
+            cp k8s/httpbin-deployment.yaml k8s/temp.yaml && envsubst < k8s/temp.yaml > k8s/httpbin-deployment.yaml && rm k8s/temp.yaml && kubectl apply -f k8s/httpbin-deployment.yaml
+            kubectl -n default rollout status deployment/httpbin --timeout=180s || echo "httpbin rollout timed out (continuing)"
+          fi
+
+          # Deploy whoami app if selected
+          if [ "${{ github.event.inputs.run_whoami_deploy }}" == "true" ]; then
+            echo "Deploying whoami app..."
+            cp k8s/whoami-deployment.yaml k8s/temp.yaml && envsubst < k8s/temp.yaml > k8s/whoami-deployment.yaml && rm k8s/temp.yaml && kubectl apply -f k8s/whoami-deployment.yaml
+            kubectl -n default rollout status deployment/whoami --timeout=180s || echo "whoami rollout timed out (continuing)"
           fi
 
           # Always apply ingress (needed for any selected app)
@@ -472,6 +508,8 @@ jobs:
           [ "${{ github.event.inputs.run_weather_deploy }}" == "true" ] && echo "Weather App: http://app.${EXTERNAL_IP}.nip.io"
           [ "${{ github.event.inputs.run_vote_deploy }}" == "true" ] && echo "Vote App: http://vote.${EXTERNAL_IP}.nip.io"
           [ "${{ github.event.inputs.run_game_deploy }}" == "true" ] && echo "Game (2048): http://game.${EXTERNAL_IP}.nip.io"
+          [ "${{ github.event.inputs.run_httpbin_deploy }}" == "true" ] && echo "Httpbin: http://httpbin.${EXTERNAL_IP}.nip.io"
+          [ "${{ github.event.inputs.run_whoami_deploy }}" == "true" ] && echo "Whoami: http://whoami.${EXTERNAL_IP}.nip.io"
 
       - name: Test App Health
         run: |
@@ -480,6 +518,8 @@ jobs:
           [ "${{ github.event.inputs.run_weather_deploy }}" == "true" ] && echo "Testing weather app..." && curl -f "http://app.${EXTERNAL_IP}.nip.io/" || exit 1
           [ "${{ github.event.inputs.run_vote_deploy }}" == "true" ] && echo "Testing vote app..." && curl -f "http://vote.${EXTERNAL_IP}.nip.io/" || exit 1
           [ "${{ github.event.inputs.run_game_deploy }}" == "true" ] && echo "Testing game app..." && curl -f "http://game.${EXTERNAL_IP}.nip.io/" || exit 1
+          [ "${{ github.event.inputs.run_httpbin_deploy }}" == "true" ] && echo "Testing httpbin app..." && curl -f "http://httpbin.${EXTERNAL_IP}.nip.io/get" || exit 1
+          [ "${{ github.event.inputs.run_whoami_deploy }}" == "true" ] && echo "Testing whoami app..." && curl -f "http://whoami.${EXTERNAL_IP}.nip.io/" || exit 1
 
   verify-deployment:
     if: always() && (needs.weather-app-deploy.result == 'success')

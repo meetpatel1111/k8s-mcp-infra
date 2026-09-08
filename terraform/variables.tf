@@ -146,3 +146,27 @@ variable "game_app_hpa_max" {
   type        = number
   default     = 3
 }
+
+variable "httpbin_app_replicas" {
+  description = "Desired replicas for the httpbin deployment"
+  type        = number
+  default     = 1
+}
+
+variable "httpbin_app_hpa_max" {
+  description = "Max replicas for the httpbin HPA"
+  type        = number
+  default     = 3
+}
+
+variable "whoami_app_replicas" {
+  description = "Desired replicas for the whoami deployment"
+  type        = number
+  default     = 1
+}
+
+variable "whoami_app_hpa_max" {
+  description = "Max replicas for the whoami HPA"
+  type        = number
+  default     = 3
+}

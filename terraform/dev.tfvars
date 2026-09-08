@@ -25,6 +25,10 @@ vote_app_replicas   = 2
 vote_app_hpa_max    = 5
 game_app_replicas   = 1
 game_app_hpa_max    = 3
+httpbin_app_replicas = 1
+httpbin_app_hpa_max  = 3
+whoami_app_replicas  = 1
+whoami_app_hpa_max   = 3
 
 # Additional tags for development
 tags = {

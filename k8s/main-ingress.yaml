@@ -62,3 +62,25 @@ spec:
                 name: game-service
                 port:
                   number: 80
+    # Httpbin - HTTP Request Testing
+    - host: httpbin.${EXTERNAL_IP}.nip.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: httpbin-service
+                port:
+                  number: 80
+    # Whoami - Container Info Service
+    - host: whoami.${EXTERNAL_IP}.nip.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: whoami-service
+                port:
+                  number: 80

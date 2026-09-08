@@ -15,9 +15,9 @@ on:
         default: true
         type: boolean
       apps_to_delete:
-        description: 'Comma-separated list of apps to delete (app, vote, game, ingress)'
+        description: 'Comma-separated list of apps to delete (app, vote, game, httpbin, whoami, ingress)'
         required: false
-        default: 'app,vote,game,ingress'
+        default: 'app,vote,game,httpbin,whoami,ingress'
       confirm:
         description: 'Confirm deletion (must be true to actually delete)'
         required: true
@@ -106,6 +106,8 @@ jobs:
               app)                 YAML_FILE="k8s/app-deployment.yaml" ;;
               vote)                YAML_FILE="k8s/vote-deployment.yaml" ;;
               game)                YAML_FILE="k8s/game-deployment.yaml" ;;
+              httpbin)             YAML_FILE="k8s/httpbin-deployment.yaml" ;;
+              whoami)              YAML_FILE="k8s/whoami-deployment.yaml" ;;
               ingress)             YAML_FILE="k8s/main-ingress.yaml" ;;
               weather-app)         YAML_FILE="k8s/app-deployment.yaml" ;;
               weather-service)     YAML_FILE="k8s/app-deployment.yaml" ;;
@@ -165,5 +167,5 @@ jobs:
         run: |
           echo "❌ Deletion not confirmed. Set 'confirm' input to true to delete Kubernetes apps."
           echo "🔒 This is a safety measure to prevent accidental deletions."
-          echo "📋 Available apps to delete: app, vote, game, ingress"
+          echo "📋 Available apps to delete: app, vote, game, httpbin, whoami, ingress"
           exit 1

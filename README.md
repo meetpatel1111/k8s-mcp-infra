@@ -1,14 +1,16 @@
 # AKS Multi-App Project
 
-This project deploys three working applications on Azure Kubernetes Service (AKS) using GitHub Actions for CI/CD.
+This project deploys five working applications on Azure Kubernetes Service (AKS) using GitHub Actions for CI/CD.
 
 ## Applications
 
 | App | Description | Image | URL pattern |
 |-----|-------------|-------|-------------|
 | `app` | WeatherPulse static weather site (built from `app_repo_url`) | Built + pushed to ACR | `http://app.<IP>.nip.io` |
-| `vote` | Microsoft Azure Voting App (front + Redis back) | `mcr.microsoft.com/azuredocs/azure-vote-front:v1` / `mcr.microsoft.com/oss/bitnami/redis:6.0.8` | `http://vote.<IP>.nip.io` |
-| `game` | 2048 demo game | `alexwhen/docker-2048:latest` | `http://game.<IP>.nip.io` |
+| `vote` | Azure Voting App (front + Redis back) | `acrdev6muqg3re.azurecr.io/azure-vote-front:v1` / `redis:7-alpine` | `http://vote.<IP>.nip.io` |
+| `game` | 2048 demo game | `quay.io/milkowski/2048:latest` | `http://game.<IP>.nip.io` |
+| `httpbin` | HTTP request testing service | `kennethreitz/httpbin` | `http://httpbin.<IP>.nip.io` |
+| `whoami` | Container info service | `traefik/whoami` | `http://whoami.<IP>.nip.io` |
 
 ## Project Structure
 
@@ -23,10 +25,12 @@ This project deploys three working applications on Azure Kubernetes Service (AKS
 │   ├── test.tfvars     # Test environment variables
 │   └── bootstrap/      # Backend setup scripts
 ├── k8s/                # Kubernetes manifests
-│   ├── app-deployment.yaml   # Weather app Deployment + Service + HPA
-│   ├── vote-deployment.yaml  # Voting app (front + redis) + Services + HPA
-│   ├── game-deployment.yaml  # 2048 game Deployment + Service + HPA
-│   └── main-ingress.yaml     # Shared nginx ingress (app/vote/game hosts)
+│   ├── app-deployment.yaml    # Weather app Deployment + Service + HPA
+│   ├── vote-deployment.yaml   # Voting app (front + redis) + Services + HPA
+│   ├── game-deployment.yaml   # 2048 game Deployment + Service + HPA
+│   ├── httpbin-deployment.yaml # Httpbin Deployment + Service + HPA
+│   ├── whoami-deployment.yaml  # Whoami Deployment + Service + HPA
+│   └── main-ingress.yaml      # Shared nginx ingress (5 hosts)
 └── .github/workflows/  # GitHub Actions workflows
     ├── deploy.yml      # Parameter-based deployment workflow
     └── delete-k8s.yml  # App deletion workflow
@@ -51,7 +55,7 @@ Navigate to **Actions** → **One-Click App Deployment (Azure)** in your GitHub 
 - **App Repository URL / Branch / Dockerfile**: Source for the weather `app` image
 - **Run Security Scan**: Enable/disable security scanning
 - **Run Terraform**: Enable/disable infrastructure deployment
-- **Run Application Deployment**: Enable/disable application deployment (deploys all three apps: weather, vote, game)
+- **Run Application Deployment**: Enable/disable application deployment (per-app checkboxes: weather, vote, game, httpbin, whoami)
 
 ### Deployment Steps
 
@@ -117,6 +121,8 @@ Key variables to configure in your `.tfvars` files:
 - `weather_app_replicas` / `weather_app_hpa_max`: Weather app scaling
 - `vote_app_replicas` / `vote_app_hpa_max`: Voting app scaling
 - `game_app_replicas` / `game_app_hpa_max`: 2048 game scaling
+- `httpbin_app_replicas` / `httpbin_app_hpa_max`: Httpbin scaling
+- `whoami_app_replicas` / `whoami_app_hpa_max`: Whoami scaling
 
 ## Required GitHub Secrets
 
@@ -167,6 +173,8 @@ Once deployed (via `nip.io` + ingress-nginx LoadBalancer IP):
 - Weather app: `http://app.<DASHED-IP>.nip.io`
 - Voting app: `http://vote.<DASHED-IP>.nip.io`
 - 2048 game: `http://game.<DASHED-IP>.nip.io`
+- Httpbin: `http://httpbin.<DASHED-IP>.nip.io`
+- Whoami: `http://whoami.<DASHED-IP>.nip.io`
 
 ## Cleanup
 
@@ -178,7 +186,7 @@ To destroy all resources:
 4. Enable **Run Terraform**
 5. Click **Run workflow**
 
-To delete only the Kubernetes apps (keep infrastructure), use the **Delete Kubernetes Applications (AKS)** workflow with `apps_to_delete: app,vote,game,ingress`.
+To delete only the Kubernetes apps (keep infrastructure), use the **Delete Kubernetes Applications (AKS)** workflow with `apps_to_delete: app,vote,game,httpbin,whoami,ingress`.
 
 ## Contributing
 
