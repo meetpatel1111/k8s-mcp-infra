@@ -8,7 +8,7 @@ cluster_name        = "aks-weather-mcp-test"
 dns_prefix          = "aks-weather-test"
 
 # Kubernetes version (use stable version for testing)
-kubernetes_version = "1.28.3"
+kubernetes_version = "1.36.3"
 
 # Node pool configuration for testing
 system_node_count     = 3

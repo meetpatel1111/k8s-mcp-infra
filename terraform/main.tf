@@ -61,6 +61,13 @@ resource "azurerm_kubernetes_cluster" "aks" {
     only_critical_addons_enabled = false
   }
 
+  # Node provisioning (required block in azurerm 5.x).
+  # "Manual" keeps traditional node-pool management; "Auto" would enable
+  # Node Auto Provisioning (Karpenter) and require Cilium/overlay networking.
+  node_provisioning_profile {
+    mode = "Manual"
+  }
+
   # Network configuration
   network_profile {
     network_plugin = "azure"

@@ -53,7 +53,7 @@ variable "environment" {
 variable "kubernetes_version" {
   description = "Kubernetes version for the AKS cluster"
   type        = string
-  default     = "1.28.3"
+  default     = "1.36.3"
 
   validation {
     condition     = can(regex("^1\\.[0-9]{1,2}\\.[0-9]{1,2}$", var.kubernetes_version))
