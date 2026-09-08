@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
       - name: vote-front
-        image: mcr.microsoft.com/azuredocs/azure-vote-front:v1
+        image: acrdev6muqg3re.azurecr.io/azure-vote-front:v1
         ports:
         - containerPort: 80
         env:
@@ -78,7 +78,7 @@ spec:
     spec:
       containers:
       - name: vote-back
-        image: mcr.microsoft.com/oss/bitnami/redis:6.0.8
+        image: redis:7-alpine
         ports:
         - containerPort: 6379
         resources:
