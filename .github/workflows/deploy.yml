@@ -355,10 +355,10 @@ jobs:
           export VOTE_HPA_MAX=$(grep -E '^\s*vote_app_hpa_max\s*=' "$ENVFILE" | awk -F'=' '{print $2}' | xargs || echo "5")
           export GAME_REPLICAS=$(grep -E '^\s*game_app_replicas\s*=' "$ENVFILE" | awk -F'=' '{print $2}' | xargs || echo "1")
           export GAME_HPA_MAX=$(grep -E '^\s*game_app_hpa_max\s*=' "$ENVFILE" | awk -F'=' '{print $2}' | xargs || echo "3")
-          export HTTPBIN_REPLICAS=$(grep -E '^\s*wordpress_app_replicas\s*=' "$ENVFILE" | awk -F'=' '{print $2}' | xargs || echo "1")
-          export HTTPBIN_HPA_MAX=$(grep -E '^\s*wordpress_app_hpa_max\s*=' "$ENVFILE" | awk -F'=' '{print $2}' | xargs || echo "3")
-          export WHOAMI_REPLICAS=$(grep -E '^\s*gitea_app_replicas\s*=' "$ENVFILE" | awk -F'=' '{print $2}' | xargs || echo "1")
-          export WHOAMI_HPA_MAX=$(grep -E '^\s*gitea_app_hpa_max\s*=' "$ENVFILE" | awk -F'=' '{print $2}' | xargs || echo "3")
+          export WORDPRESS_REPLICAS=$(grep -E '^\s*wordpress_app_replicas\s*=' "$ENVFILE" | awk -F'=' '{print $2}' | xargs || echo "1")
+          export WORDPRESS_HPA_MAX=$(grep -E '^\s*wordpress_app_hpa_max\s*=' "$ENVFILE" | awk -F'=' '{print $2}' | xargs || echo "3")
+          export GITEA_REPLICAS=$(grep -E '^\s*gitea_app_replicas\s*=' "$ENVFILE" | awk -F'=' '{print $2}' | xargs || echo "1")
+          export GITEA_HPA_MAX=$(grep -E '^\s*gitea_app_hpa_max\s*=' "$ENVFILE" | awk -F'=' '{print $2}' | xargs || echo "3")
 
           echo "WEATHER_APP_REPLICAS_MIN=$WEATHER_APP_REPLICAS" >> $GITHUB_ENV
           echo "WEATHER_APP_REPLICAS_MAX=$WEATHER_APP_HPA_MAX" >> $GITHUB_ENV
@@ -366,10 +366,10 @@ jobs:
           echo "VOTE_REPLICAS_MAX=$VOTE_HPA_MAX" >> $GITHUB_ENV
           echo "GAME_REPLICAS_MIN=$GAME_REPLICAS" >> $GITHUB_ENV
           echo "GAME_REPLICAS_MAX=$GAME_HPA_MAX" >> $GITHUB_ENV
-          echo "HTTPBIN_REPLICAS_MIN=$HTTPBIN_REPLICAS" >> $GITHUB_ENV
-          echo "HTTPBIN_REPLICAS_MAX=$HTTPBIN_HPA_MAX" >> $GITHUB_ENV
-          echo "WHOAMI_REPLICAS_MIN=$WHOAMI_REPLICAS" >> $GITHUB_ENV
-          echo "WHOAMI_REPLICAS_MAX=$WHOAMI_HPA_MAX" >> $GITHUB_ENV
+          echo "WORDPRESS_REPLICAS_MIN=$WORDPRESS_REPLICAS" >> $GITHUB_ENV
+          echo "WORDPRESS_REPLICAS_MAX=$WORDPRESS_HPA_MAX" >> $GITHUB_ENV
+          echo "GITEA_REPLICAS_MIN=$GITEA_REPLICAS" >> $GITHUB_ENV
+          echo "GITEA_REPLICAS_MAX=$GITEA_HPA_MAX" >> $GITHUB_ENV
 
       - name: Apply Kubernetes Deployments & Services (Azure)
         run: |
@@ -433,10 +433,10 @@ jobs:
           export VOTE_REPLICAS_MAX="${VOTE_REPLICAS_MAX:-5}"
           export GAME_REPLICAS_MIN="${GAME_REPLICAS_MIN:-1}"
           export GAME_REPLICAS_MAX="${GAME_REPLICAS_MAX:-3}"
-          export HTTPBIN_REPLICAS_MIN="${HTTPBIN_REPLICAS_MIN:-1}"
-          export HTTPBIN_REPLICAS_MAX="${HTTPBIN_REPLICAS_MAX:-3}"
-          export WHOAMI_REPLICAS_MIN="${WHOAMI_REPLICAS_MIN:-1}"
-          export WHOAMI_REPLICAS_MAX="${WHOAMI_REPLICAS_MAX:-3}"
+          export WORDPRESS_REPLICAS_MIN="${WORDPRESS_REPLICAS_MIN:-1}"
+          export WORDPRESS_REPLICAS_MAX="${WORDPRESS_REPLICAS_MAX:-3}"
+          export GITEA_REPLICAS_MIN="${GITEA_REPLICAS_MIN:-1}"
+          export GITEA_REPLICAS_MAX="${GITEA_REPLICAS_MAX:-3}"
 
           # Deploy weather app if selected
           if [ "${{ github.event.inputs.run_weather_deploy }}" == "true" ]; then
