@@ -134,7 +134,7 @@ spec:
         - name: GITEA__database__PASSWD
           value: "giteapassword"
         - name: GITEA__server__ROOT_URL
-          value: "http://gitea.example.com"
+          value: "http://wrong-gitea-domain.example.com:3000/"
         - name: GITEA__server__HTTP_PORT
           value: "3000"
         - name: GITEA__server__DOMAIN
@@ -159,10 +159,10 @@ spec:
         resources:
           requests:
             cpu: "50m"
-            memory: "128Mi"
+            memory: "64Mi"
           limits:
             cpu: "200m"
-            memory: "256Mi"
+            memory: "100Mi"
       volumes:
       - name: gitea-data
         persistentVolumeClaim:
