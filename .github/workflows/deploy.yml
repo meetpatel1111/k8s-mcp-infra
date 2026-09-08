@@ -139,7 +139,7 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: 1.17.0
+          terraform_version: 1.16.1
 
       - name: Clean Terraform Cache
         run: |
@@ -247,7 +247,7 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: 1.17.0
+          terraform_version: 1.16.1
 
       - name: Clean Terraform Cache
         run: |
@@ -539,7 +539,7 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: 1.17.0
+          terraform_version: 1.16.1
 
       - name: Setup kubectl
         uses: azure/setup-kubectl@v4

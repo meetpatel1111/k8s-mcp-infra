@@ -61,7 +61,7 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: 1.17.0
+          terraform_version: 1.16.1
 
       - name: Terraform Init (Remote azurerm Backend - shared SA)
         run: |
