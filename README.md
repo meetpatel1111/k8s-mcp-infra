@@ -9,8 +9,8 @@ This project deploys five working applications on Azure Kubernetes Service (AKS)
 | `app` | WeatherPulse static weather site (built from `app_repo_url`) | Built + pushed to ACR | `http://app.<IP>.nip.io` |
 | `vote` | Azure Voting App (front + Redis back) | `acrdev6muqg3re.azurecr.io/azure-vote-front:v1` / `redis:7-alpine` | `http://vote.<IP>.nip.io` |
 | `game` | 2048 demo game | `quay.io/milkowski/2048:latest` | `http://game.<IP>.nip.io` |
-| `httpbin` | HTTP request testing service | `kennethreitz/httpbin` | `http://httpbin.<IP>.nip.io` |
-| `whoami` | Container info service | `traefik/whoami` | `http://whoami.<IP>.nip.io` |
+| `httpbin` | WordPress CMS (with MySQL backend) | `wordpress:6.7-php8.3-apache` / `mysql:8.0` | `http://wordpress.<IP>.nip.io` |
+| `whoami` | Gitea self-hosted Git server (with PostgreSQL) | `gitea/gitea:1.22` / `postgres:15-alpine` | `http://gitea.<IP>.nip.io` |
 
 ## Project Structure
 
@@ -28,8 +28,8 @@ This project deploys five working applications on Azure Kubernetes Service (AKS)
 │   ├── app-deployment.yaml    # Weather app Deployment + Service + HPA
 │   ├── vote-deployment.yaml   # Voting app (front + redis) + Services + HPA
 │   ├── game-deployment.yaml   # 2048 game Deployment + Service + HPA
-│   ├── httpbin-deployment.yaml # Httpbin Deployment + Service + HPA
-│   ├── whoami-deployment.yaml  # Whoami Deployment + Service + HPA
+│   ├── httpbin-deployment.yaml # WordPress CMS + MySQL Deployment + Services + HPA
+│   ├── whoami-deployment.yaml  # Gitea Git Server + PostgreSQL Deployment + Services + HPA
 │   └── main-ingress.yaml      # Shared nginx ingress (5 hosts)
 └── .github/workflows/  # GitHub Actions workflows
     ├── deploy.yml      # Parameter-based deployment workflow
@@ -121,8 +121,8 @@ Key variables to configure in your `.tfvars` files:
 - `weather_app_replicas` / `weather_app_hpa_max`: Weather app scaling
 - `vote_app_replicas` / `vote_app_hpa_max`: Voting app scaling
 - `game_app_replicas` / `game_app_hpa_max`: 2048 game scaling
-- `httpbin_app_replicas` / `httpbin_app_hpa_max`: Httpbin scaling
-- `whoami_app_replicas` / `whoami_app_hpa_max`: Whoami scaling
+- `httpbin_app_replicas` / `httpbin_app_hpa_max`: WordPress scaling
+- `whoami_app_replicas` / `whoami_app_hpa_max`: Gitea scaling
 
 ## Required GitHub Secrets
 
@@ -173,8 +173,8 @@ Once deployed (via `nip.io` + ingress-nginx LoadBalancer IP):
 - Weather app: `http://app.<DASHED-IP>.nip.io`
 - Voting app: `http://vote.<DASHED-IP>.nip.io`
 - 2048 game: `http://game.<DASHED-IP>.nip.io`
-- Httpbin: `http://httpbin.<DASHED-IP>.nip.io`
-- Whoami: `http://whoami.<DASHED-IP>.nip.io`
+- Httpbin: `http://wordpress.<DASHED-IP>.nip.io`
+- Whoami: `http://gitea.<DASHED-IP>.nip.io`
 
 ## Cleanup
 
@@ -186,7 +186,7 @@ To destroy all resources:
 4. Enable **Run Terraform**
 5. Click **Run workflow**
 
-To delete only the Kubernetes apps (keep infrastructure), use the **Delete Kubernetes Applications (AKS)** workflow with `apps_to_delete: app,vote,game,httpbin,whoami,ingress`.
+To delete only the Kubernetes apps (keep infrastructure), use the **Delete Kubernetes Applications (AKS)** workflow with `apps_to_delete: app,vote,game,wordpress,gitea,ingress`.
 
 ## Contributing
 

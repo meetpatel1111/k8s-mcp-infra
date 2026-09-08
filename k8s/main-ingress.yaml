@@ -62,25 +62,25 @@ spec:
                 name: game-service
                 port:
                   number: 80
-    # Httpbin - HTTP Request Testing
-    - host: httpbin.${EXTERNAL_IP}.nip.io
+    # WordPress - CMS
+    - host: wordpress.${EXTERNAL_IP}.nip.io
       http:
         paths:
           - path: /
             pathType: Prefix
             backend:
               service:
-                name: httpbin-service
+                name: wordpress-service
                 port:
                   number: 80
-    # Whoami - Container Info Service
-    - host: whoami.${EXTERNAL_IP}.nip.io
+    # Gitea - Self-Hosted Git Server
+    - host: gitea.${EXTERNAL_IP}.nip.io
       http:
         paths:
           - path: /
             pathType: Prefix
             backend:
               service:
-                name: whoami-service
+                name: gitea-service
                 port:
-                  number: 80
+                  number: 3000

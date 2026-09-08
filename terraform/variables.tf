@@ -147,26 +147,26 @@ variable "game_app_hpa_max" {
   default     = 3
 }
 
-variable "httpbin_app_replicas" {
-  description = "Desired replicas for the httpbin deployment"
+variable "wordpress_app_replicas" {
+  description = "Desired replicas for the WordPress deployment"
   type        = number
   default     = 1
 }
 
-variable "httpbin_app_hpa_max" {
-  description = "Max replicas for the httpbin HPA"
+variable "wordpress_app_hpa_max" {
+  description = "Max replicas for the WordPress HPA"
   type        = number
   default     = 3
 }
 
-variable "whoami_app_replicas" {
-  description = "Desired replicas for the whoami deployment"
+variable "gitea_app_replicas" {
+  description = "Desired replicas for the Gitea deployment"
   type        = number
   default     = 1
 }
 
-variable "whoami_app_hpa_max" {
-  description = "Max replicas for the whoami HPA"
+variable "gitea_app_hpa_max" {
+  description = "Max replicas for the Gitea HPA"
   type        = number
   default     = 3
 }

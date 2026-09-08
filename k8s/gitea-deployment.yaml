@@ -1,0 +1,220 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: gitea-pvc
+  namespace: default
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: gitea-db-pvc
+  namespace: default
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gitea-db
+  namespace: default
+  labels:
+    app: gitea-db
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gitea-db
+  template:
+    metadata:
+      labels:
+        app: gitea-db
+    spec:
+      containers:
+      - name: gitea-db
+        image: postgres:15-alpine
+        ports:
+        - containerPort: 5432
+        env:
+        - name: POSTGRES_DB
+          value: "gitea"
+        - name: POSTGRES_USER
+          value: "gitea"
+        - name: POSTGRES_PASSWORD
+          value: "giteapassword"
+        volumeMounts:
+        - name: gitea-db-data
+          mountPath: /var/lib/postgresql/data
+        readinessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -U
+            - gitea
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        livenessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -U
+            - gitea
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "300m"
+            memory: "256Mi"
+      volumes:
+      - name: gitea-db-data
+        persistentVolumeClaim:
+          claimName: gitea-db-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gitea-db-service
+  namespace: default
+  labels:
+    app: gitea-db
+spec:
+  selector:
+    app: gitea-db
+  type: ClusterIP
+  ports:
+    - port: 5432
+      targetPort: 5432
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gitea
+  namespace: default
+  labels:
+    app: gitea
+spec:
+  replicas: ${GITEA_REPLICAS_MIN}
+  selector:
+    matchLabels:
+      app: gitea
+  template:
+    metadata:
+      labels:
+        app: gitea
+    spec:
+      containers:
+      - name: gitea
+        image: gitea/gitea:1.22
+        ports:
+        - containerPort: 3000
+        - containerPort: 22
+        env:
+        - name: GITEA__database__DB_TYPE
+          value: "postgres"
+        - name: GITEA__database__HOST
+          value: "gitea-db-service:5432"
+        - name: GITEA__database__NAME
+          value: "gitea"
+        - name: GITEA__database__USER
+          value: "gitea"
+        - name: GITEA__database__PASSWD
+          value: "giteapassword"
+        - name: GITEA__server__ROOT_URL
+          value: "http://gitea.example.com"
+        - name: GITEA__server__HTTP_PORT
+          value: "3000"
+        - name: GITEA__server__DOMAIN
+          value: "gitea.example.com"
+        - name: GITEA__service__DISABLE_REGISTRATION
+          value: "false"
+        volumeMounts:
+        - name: gitea-data
+          mountPath: /data
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 3000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 3000
+          initialDelaySeconds: 60
+          periodSeconds: 15
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+      volumes:
+      - name: gitea-data
+        persistentVolumeClaim:
+          claimName: gitea-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gitea-service
+  namespace: default
+  labels:
+    app: gitea
+spec:
+  selector:
+    app: gitea
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 3000
+      targetPort: 3000
+    - name: ssh
+      port: 22
+      targetPort: 22
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: gitea-hpa
+  namespace: default
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: gitea
+  minReplicas: ${GITEA_REPLICAS_MIN}
+  maxReplicas: ${GITEA_REPLICAS_MAX}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 60
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 30
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 60
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Percent
+          value: 50
+          periodSeconds: 60
