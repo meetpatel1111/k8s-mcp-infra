@@ -55,6 +55,7 @@ spec:
         volumeMounts:
         - name: gitea-db-data
           mountPath: /var/lib/postgresql/data
+          subPath: pgdata
         readinessProbe:
           exec:
             command:
@@ -73,10 +74,10 @@ spec:
           periodSeconds: 10
         resources:
           requests:
-            cpu: "100m"
+            cpu: "50m"
             memory: "128Mi"
           limits:
-            cpu: "300m"
+            cpu: "200m"
             memory: "256Mi"
       volumes:
       - name: gitea-db-data
@@ -157,11 +158,11 @@ spec:
           periodSeconds: 15
         resources:
           requests:
-            cpu: "100m"
+            cpu: "50m"
             memory: "128Mi"
           limits:
-            cpu: "500m"
-            memory: "512Mi"
+            cpu: "200m"
+            memory: "256Mi"
       volumes:
       - name: gitea-data
         persistentVolumeClaim:
