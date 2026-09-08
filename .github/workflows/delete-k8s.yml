@@ -27,7 +27,7 @@ on:
 env:
   TF_DIR: terraform
   # Shared backend (same RG/SA/container for all envs)
-  BACKEND_RG: tfstate-shared-rg
+  BACKEND_RG: tfstate-uks-shared-rg
   BACKEND_SA: sttfstateshared
   BACKEND_CONTAINER: tfstate
   ARM_CLIENT_ID:       ${{ fromJson(secrets.AZURE_CREDENTIALS).clientId }}
