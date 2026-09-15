@@ -53,6 +53,9 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
+      - name: Upgrade Azure CLI
+        run: az upgrade --yes
+
       - name: Setup kubectl
         uses: azure/setup-kubectl@v4
         with:

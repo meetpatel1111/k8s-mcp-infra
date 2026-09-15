@@ -117,6 +117,9 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
+      - name: Upgrade Azure CLI
+        run: az upgrade --yes
+
       - name: Register Azure Providers
         run: |
           echo "Registering all required Azure providers..."
@@ -224,6 +227,9 @@ jobs:
         uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Upgrade Azure CLI
+        run: az upgrade --yes
 
       - name: Register Azure Providers
         run: |
@@ -535,6 +541,9 @@ jobs:
         uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Upgrade Azure CLI
+        run: az upgrade --yes
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
