@@ -117,8 +117,8 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Upgrade Azure CLI
-        run: az upgrade --yes
+      - name: Setup Azure CLI
+        uses: azure/setup-azure-cli@v1
 
       - name: Register Azure Providers
         run: |
@@ -228,8 +228,8 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Upgrade Azure CLI
-        run: az upgrade --yes
+      - name: Setup Azure CLI
+        uses: azure/setup-azure-cli@v1
 
       - name: Register Azure Providers
         run: |
@@ -542,8 +542,8 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Upgrade Azure CLI
-        run: az upgrade --yes
+      - name: Setup Azure CLI
+        uses: azure/setup-azure-cli@v1
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
