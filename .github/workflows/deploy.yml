@@ -165,6 +165,19 @@ jobs:
             "${BACKEND_CONTAINER}" \
             "eastus"
 
+      # Supply the state storage key directly so Terraform's azurerm backend uses
+      # SharedKey data-plane auth and skips the ARM listKeys call (whose bundled
+      # api-version can be rejected by Azure with InvalidApiVersionParameter).
+      - name: Resolve Terraform backend access key
+        run: |
+          set -euo pipefail
+          SA_RG=$(az storage account list --query "[?name=='${BACKEND_SA}'].resourceGroup | [0]" -o tsv)
+          if [ -z "$SA_RG" ]; then SA_RG="${BACKEND_RG}"; fi
+          ACCOUNT_KEY=$(az storage account keys list -n "${BACKEND_SA}" -g "$SA_RG" --query '[0].value' -o tsv)
+          echo "::add-mask::$ACCOUNT_KEY"
+          echo "ARM_ACCESS_KEY=$ACCOUNT_KEY" >> "$GITHUB_ENV"
+          echo "Resolved backend access key for ${BACKEND_SA} (rg=$SA_RG)"
+
       - name: Terraform Init (Remote azurerm Backend - shared SA)
         run: |
           set -euo pipefail
@@ -269,6 +282,19 @@ jobs:
 
       - name: Verify kubectl version
         run: kubectl version --client
+
+      # Supply the state storage key directly so Terraform's azurerm backend uses
+      # SharedKey data-plane auth and skips the ARM listKeys call (whose bundled
+      # api-version can be rejected by Azure with InvalidApiVersionParameter).
+      - name: Resolve Terraform backend access key
+        run: |
+          set -euo pipefail
+          SA_RG=$(az storage account list --query "[?name=='${BACKEND_SA}'].resourceGroup | [0]" -o tsv)
+          if [ -z "$SA_RG" ]; then SA_RG="${BACKEND_RG}"; fi
+          ACCOUNT_KEY=$(az storage account keys list -n "${BACKEND_SA}" -g "$SA_RG" --query '[0].value' -o tsv)
+          echo "::add-mask::$ACCOUNT_KEY"
+          echo "ARM_ACCESS_KEY=$ACCOUNT_KEY" >> "$GITHUB_ENV"
+          echo "Resolved backend access key for ${BACKEND_SA} (rg=$SA_RG)"
 
       # ---------- read TF outputs & get kubeconfig ----------
       - name: Terraform Init (for reading outputs) - shared backend
@@ -554,6 +580,19 @@ jobs:
         uses: azure/setup-kubectl@v4
         with:
           version: 'latest'
+
+      # Supply the state storage key directly so Terraform's azurerm backend uses
+      # SharedKey data-plane auth and skips the ARM listKeys call (whose bundled
+      # api-version can be rejected by Azure with InvalidApiVersionParameter).
+      - name: Resolve Terraform backend access key
+        run: |
+          set -euo pipefail
+          SA_RG=$(az storage account list --query "[?name=='${BACKEND_SA}'].resourceGroup | [0]" -o tsv)
+          if [ -z "$SA_RG" ]; then SA_RG="${BACKEND_RG}"; fi
+          ACCOUNT_KEY=$(az storage account keys list -n "${BACKEND_SA}" -g "$SA_RG" --query '[0].value' -o tsv)
+          echo "::add-mask::$ACCOUNT_KEY"
+          echo "ARM_ACCESS_KEY=$ACCOUNT_KEY" >> "$GITHUB_ENV"
+          echo "Resolved backend access key for ${BACKEND_SA} (rg=$SA_RG)"
 
       - name: Terraform Init (for reading outputs) - shared backend
         run: |
